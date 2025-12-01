@@ -1,0 +1,12 @@
+# Discord Bot Dependencies
+discord.py==2.3.2
+python-dotenv==1.0.0
+
+# Database
+SQLAlchemy==2.0.23
+aiosqlite==0.19.0
+greenlet==3.0.1
+
+# Async support for SQLAlchemy
+asyncpg==0.29.0
+

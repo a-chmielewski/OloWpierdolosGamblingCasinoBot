@@ -122,7 +122,7 @@ The slot machine is a **5-reel game** with 5 symbols and animated reveals:
 
 | Combination | Payout | Example |
 |------------|--------|---------|
-| 💎 💎 💎 💎 💎 | **50x bet** | MEGA JACKPOT! |
+| 💎 💎 💎 💎 💎 | **777x bet** 7️⃣7️⃣7️⃣ | MEGA JACKPOT! |
 | ⭐ ⭐ ⭐ ⭐ ⭐ | 20x bet | Five stars! |
 | 🍋 🍋 🍋 🍋 🍋 or 🍒 🍒 🍒 🍒 🍒 | 10x bet | Five of a kind |
 | Any 4 matching | 5x bet | Nice hit! |

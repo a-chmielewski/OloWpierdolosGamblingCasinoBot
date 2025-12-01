@@ -29,7 +29,7 @@ class Config:
     # Slots constants (5 reels)
     SLOT_SYMBOLS: list[str] = ["🍒", "🍋", "⭐", "💎", "💀"]
     SLOT_WEIGHTS: list[int] = [35, 30, 20, 10, 5]  # Probability weights (harder to win)
-    SLOT_PAYOUT_FIVE_JACKPOT: int = 50    # 💎💎💎💎💎 (mega jackpot!)
+    SLOT_PAYOUT_FIVE_JACKPOT: int = 777   # 💎💎💎💎💎 (mega jackpot! 7️⃣7️⃣7️⃣)
     SLOT_PAYOUT_FIVE_HIGH: int = 20       # ⭐⭐⭐⭐⭐
     SLOT_PAYOUT_FIVE_MID: int = 10        # 🍋🍋🍋🍋🍋 or 🍒🍒🍒🍒🍒
     SLOT_PAYOUT_FOUR_MATCH: int = 5       # Any 4 matching

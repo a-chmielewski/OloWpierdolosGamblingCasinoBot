@@ -58,7 +58,7 @@ class Slots(commands.Cog):
             
             # Mega Jackpot - 5 Diamonds
             elif most_common_symbol == "💎":
-                return bet * config.SLOT_PAYOUT_FIVE_JACKPOT, "💎💎💎 MEGA JACKPOT! Five diamonds!"
+                return bet * config.SLOT_PAYOUT_FIVE_JACKPOT, "💎💎💎 7️⃣ 7️⃣ 7️⃣ MEGA JACKPOT! 7️⃣ 7️⃣ 7️⃣ Five diamonds!"
             
             # Big win - 5 Stars
             elif most_common_symbol == "⭐":
@@ -214,7 +214,7 @@ class Slots(commands.Cog):
         await asyncio.sleep(0.8)
         
         # Determine final embed color based on result
-        if payout > bet * 20:  # Mega win (50x jackpot or 20x)
+        if payout > bet * 100:  # Mega win (777x jackpot)
             final_color = discord.Color.gold()
         elif payout > bet * 5:  # Big win
             final_color = discord.Color.orange()

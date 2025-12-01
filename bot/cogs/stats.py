@@ -68,6 +68,9 @@ class Stats(commands.Cog):
         total_slots = game_stats["slots_played"]
         slots_winrate = (game_stats["slots_won"] / total_slots * 100) if total_slots > 0 else 0
         
+        total_roulette = game_stats["roulette_played"]
+        roulette_winrate = (game_stats["roulette_won"] / total_roulette * 100) if total_roulette > 0 else 0
+        
         embed = discord.Embed(
             title=f"📊 {target.display_name}'s Statistics",
             color=net_color,
@@ -121,6 +124,18 @@ class Stats(commands.Cog):
             inline=True,
         )
         
+        # Roulette section
+        embed.add_field(
+            name="🎡 Roulette",
+            value=(
+                f"**Played:** {game_stats['roulette_played']}\n"
+                f"**Won:** {game_stats['roulette_won']}\n"
+                f"**Lost:** {game_stats['roulette_lost']}\n"
+                f"**Win Rate:** {roulette_winrate:.1f}%"
+            ),
+            inline=True,
+        )
+        
         # Records section
         biggest_win = game_stats["biggest_win"]
         biggest_loss = game_stats["biggest_loss"]
@@ -132,8 +147,6 @@ class Stats(commands.Cog):
             ),
             inline=True,
         )
-        
-        embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
         
         # Footer with account age
         embed.set_footer(text=f"Account created: {db_user.created_at.strftime('%Y-%m-%d')}")

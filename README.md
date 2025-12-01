@@ -6,7 +6,8 @@ A self-hosted Discord bot that provides a persistent, in-server casino/economy f
 
 - **Virtual Economy**: Persistent coin balance per user (no real money)
 - **Deathroll Duels**: WoW-style decreasing roll 1v1 gambling
-- **Slot Machine**: Classic 3-reel slots with jackpots and special combinations
+- **Slot Machine**: Classic 5-reel slots with jackpots and special combinations
+- **Roulette**: Color-based roulette betting on red, black, or green
 - **Daily Rewards**: Claim free coins every 24 hours
 - **Leaderboards**: See the richest players
 - **Statistics**: Detailed stats for each player
@@ -27,6 +28,7 @@ A self-hosted Discord bot that provides a persistent, in-server casino/economy f
 | `/duel_start @user <amount>` | Challenge someone to a deathroll duel |
 | `/duel_cancel` | Cancel your pending duel challenge |
 | `/slots <bet>` | Play the slot machine with your bet |
+| `/roulette <bet> <choice>` | Bet on red, black, or green in roulette |
 
 ### Stats
 | Command | Description |
@@ -107,7 +109,7 @@ Deathroll is a WoW-inspired gambling game:
 
 ## How Slots Work
 
-The slot machine is a classic 3-reel game with 5 symbols:
+The slot machine is a **5-reel game** with 5 symbols and animated reveals:
 
 **Symbols:** 🍒 Cherry | 🍋 Lemon | ⭐ Star | 💎 Diamond | 💀 Skull
 
@@ -115,15 +117,41 @@ The slot machine is a classic 3-reel game with 5 symbols:
 
 | Combination | Payout | Example |
 |------------|--------|---------|
-| 💎 💎 💎 | 10x bet | JACKPOT! |
-| ⭐ ⭐ ⭐ | 5x bet | Triple stars |
-| 🍋 🍋 🍋 | 3x bet | Triple lemons |
-| 🍒 🍒 🍒 | 3x bet | Triple cherries |
-| Any 2 matching | 2x bet | Small win |
-| 💀 💀 💀 | **LOSE 2x bet** | Death curse! |
-| No match | Lose bet | Better luck next time |
+| 💎 💎 💎 💎 💎 | **50x bet** | MEGA JACKPOT! |
+| ⭐ ⭐ ⭐ ⭐ ⭐ | 20x bet | Five stars! |
+| 🍋 🍋 🍋 🍋 🍋 or 🍒 🍒 🍒 🍒 🍒 | 10x bet | Five of a kind |
+| Any 4 matching | 5x bet | Nice hit! |
+| Any 3 matching | 2x bet | Small win |
+| 💀 💀 💀 💀 💀 | **LOSE 3x bet** | Death curse! |
+| Less than 3 matching | Lose bet | Better luck next time |
 
-The symbols have weighted probabilities - diamonds are rarer than cherries!
+**Features:**
+- Weighted probabilities make diamonds ultra-rare for exciting wins
+- Animated reel reveals - watch each symbol land one by one
+- 5 reels means wins are rarer but MORE exciting when they hit!
+
+## How Roulette Works
+
+Roulette is a color-based betting game simulating a European roulette wheel:
+
+**Color Choices:**
+- 🔴 **Red**: 18 out of 37 numbers (48.6% chance)
+- ⚫ **Black**: 18 out of 37 numbers (48.6% chance)
+- 🟢 **Green**: 1 out of 37 numbers (2.7% chance - the 0)
+
+**Payout Rules:**
+
+| Bet | Probability | Payout | Example |
+|-----|------------|--------|---------|
+| 🔴 Red | 18/37 (48.6%) | **2x bet** | Bet 1,000 → Win 2,000 |
+| ⚫ Black | 18/37 (48.6%) | **2x bet** | Bet 1,000 → Win 2,000 |
+| 🟢 Green | 1/37 (2.7%) | **14x bet** | Bet 1,000 → Win 14,000 |
+
+**Features:**
+- Animated wheel spin with suspenseful reveal
+- Each spin shows the winning color and number (0-36)
+- High risk, high reward on green for brave gamblers
+- Simple but exciting gameplay for quick rounds
 
 ## Tech Stack
 
@@ -149,6 +177,7 @@ OloWpierdolosGamblingCasinoBot/
 │   │   ├── economy.py       # /register, /balance, /daily
 │   │   ├── duel.py          # Deathroll game
 │   │   ├── slots.py         # Slot machine game
+│   │   ├── roulette.py      # Roulette game
 │   │   ├── stats.py         # /stats, /leaderboard
 │   │   └── admin.py         # Admin commands
 │   └── utils/

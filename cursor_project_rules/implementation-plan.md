@@ -170,6 +170,57 @@ Updated `README.md`:
 
 ---
 
+## Phase 7: Roulette Game
+
+### 7.1 Configuration
+**Status:** Done
+
+Updated `bot/config.py` with roulette constants:
+- ROULETTE_RED_CHANCE: 18 (out of 37)
+- ROULETTE_BLACK_CHANCE: 18 (out of 37)
+- ROULETTE_GREEN_CHANCE: 1 (out of 37)
+- ROULETTE_PAYOUT_RED_BLACK: 2x payout
+- ROULETTE_PAYOUT_GREEN: 14x payout
+
+### 7.2 Roulette cog
+**Status:** Done
+
+Created `bot/cogs/roulette.py` with:
+- `/roulette <bet> <choice>`: Play roulette with color-based betting
+- Color choices: red, black, green with app_commands.Choice for user selection
+- Validation: user registered, positive bet, sufficient balance
+- Weighted random color selection using probabilities (18/18/1 out of 37)
+- Payout calculation: 2x for red/black, 14x for green
+- Animated wheel spin with suspenseful reveal
+- Rich embeds with color-coded results and number display (0-36)
+- Balance updates with ROULETTE_WIN/ROULETTE_LOSS transaction reasons
+
+### 7.3 Statistics
+**Status:** Done
+
+Updated `bot/database/crud.py`:
+- Added roulette stats queries to `get_user_game_stats()`
+- Tracks roulette_played, roulette_won, roulette_lost
+- Includes roulette transactions in biggest win/loss calculations
+
+Updated `bot/cogs/stats.py`:
+- Added 🎡 Roulette section to `/stats` command
+- Displays games played, won, lost, and win rate
+
+Updated `bot/main.py`:
+- Added "cogs.roulette" to cog loading list
+
+### 7.4 Documentation
+**Status:** Done
+
+Updated `README.md`:
+- Added roulette to features list
+- Added `/roulette <bet> <choice>` to gambling commands table
+- Added "How Roulette Works" section with color choices, probabilities, and payout rules
+- Updated project structure to include roulette.py
+
+---
+
 ## Utilities
 
 ### helpers.py

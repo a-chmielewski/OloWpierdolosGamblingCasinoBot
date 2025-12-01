@@ -27,47 +27,54 @@ class Slots(commands.Cog):
         self.bot = bot
     
     def _spin_slots(self) -> list[str]:
-        """Generate 3 random slot symbols using weighted selection."""
+        """Generate 5 random slot symbols using weighted selection."""
         return random.choices(
             config.SLOT_SYMBOLS,
             weights=config.SLOT_WEIGHTS,
-            k=3
+            k=5
         )
     
     def _calculate_payout(self, symbols: list[str], bet: int) -> tuple[int, str]:
         """
-        Calculate payout based on slot symbols.
+        Calculate payout based on 5-reel slot symbols.
         
         Returns:
             tuple of (payout_amount, result_description)
             Positive payout = win, negative = loss
         """
-        # Check for triple matches
-        if symbols[0] == symbols[1] == symbols[2]:
-            symbol = symbols[0]
-            
-            # Death curse - lose double!
-            if symbol == "💀":
-                return -bet * config.SLOT_PAYOUT_DEATH, "💀 DEATH CURSE! Triple skulls!"
-            
-            # Jackpot - Diamond
-            elif symbol == "💎":
-                return bet * config.SLOT_PAYOUT_TRIPLE_JACKPOT, "💎 JACKPOT! Triple diamonds!"
-            
-            # High tier - Star
-            elif symbol == "⭐":
-                return bet * config.SLOT_PAYOUT_TRIPLE_HIGH, "⭐ Amazing! Triple stars!"
-            
-            # Mid tier - Lemon or Cherry
-            elif symbol in ["🍋", "🍒"]:
-                return bet * config.SLOT_PAYOUT_TRIPLE_MID, f"{symbol} Nice! Triple {symbol}!"
+        # Count occurrences of each symbol
+        symbol_counts = {}
+        for symbol in symbols:
+            symbol_counts[symbol] = symbol_counts.get(symbol, 0) + 1
         
-        # Check for double matches
-        if symbols[0] == symbols[1] or symbols[1] == symbols[2] or symbols[0] == symbols[2]:
-            matching_symbol = symbols[0] if symbols[0] == symbols[1] else (
-                symbols[1] if symbols[1] == symbols[2] else symbols[0]
-            )
-            return bet * config.SLOT_PAYOUT_DOUBLE, f"Small win! Two {matching_symbol}"
+        max_count = max(symbol_counts.values())
+        most_common_symbol = [s for s, count in symbol_counts.items() if count == max_count][0]
+        
+        # Check for 5 of a kind
+        if max_count == 5:
+            # Death curse - lose triple!
+            if most_common_symbol == "💀":
+                return -bet * config.SLOT_PAYOUT_DEATH, "💀💀💀 DEATH CURSE! Five skulls of doom!"
+            
+            # Mega Jackpot - 5 Diamonds
+            elif most_common_symbol == "💎":
+                return bet * config.SLOT_PAYOUT_FIVE_JACKPOT, "💎💎💎 MEGA JACKPOT! Five diamonds!"
+            
+            # Big win - 5 Stars
+            elif most_common_symbol == "⭐":
+                return bet * config.SLOT_PAYOUT_FIVE_HIGH, "⭐⭐⭐ AMAZING! Five stars!"
+            
+            # Good win - 5 Lemons or Cherries
+            elif most_common_symbol in ["🍋", "🍒"]:
+                return bet * config.SLOT_PAYOUT_FIVE_MID, f"{most_common_symbol} Excellent! Five {most_common_symbol}!"
+        
+        # Check for 4 of a kind
+        elif max_count == 4:
+            return bet * config.SLOT_PAYOUT_FOUR_MATCH, f"Nice! Four {most_common_symbol}"
+        
+        # Check for 3 of a kind
+        elif max_count == 3:
+            return bet * config.SLOT_PAYOUT_THREE_MATCH, f"Small win! Three {most_common_symbol}"
         
         # No match - loss
         return -bet, "No match. Better luck next time!"
@@ -120,7 +127,7 @@ class Slots(commands.Cog):
                 user = await get_user_by_discord_id(session, interaction.user.id)
                 new_balance = user.balance
         
-        # === ANIMATED REEL REVEAL ===
+        # === ANIMATED REEL REVEAL (5 reels) ===
         
         # Step 1: All reels spinning
         spinning_embed = discord.Embed(
@@ -130,7 +137,7 @@ class Slots(commands.Cog):
         )
         spinning_embed.add_field(
             name="Reels",
-            value="**🎰 | 🎰 | 🎰**",
+            value="**🎰 | 🎰 | 🎰 | 🎰 | 🎰**",
             inline=False
         )
         spinning_embed.set_footer(text=f"Bet: {format_coins(bet)}")
@@ -140,7 +147,7 @@ class Slots(commands.Cog):
         message = await interaction.original_response()
         
         # Step 2: First reel stops
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(0.6)
         reel1_embed = discord.Embed(
             title="🎰 Slot Machine 🎰",
             description="**Spinning...**",
@@ -148,7 +155,7 @@ class Slots(commands.Cog):
         )
         reel1_embed.add_field(
             name="Reels",
-            value=f"**{symbols[0]} | 🎰 | 🎰**",
+            value=f"**{symbols[0]} | 🎰 | 🎰 | 🎰 | 🎰**",
             inline=False
         )
         reel1_embed.set_footer(text=f"Bet: {format_coins(bet)}")
@@ -156,7 +163,7 @@ class Slots(commands.Cog):
         await message.edit(embed=reel1_embed)
         
         # Step 3: Second reel stops
-        await asyncio.sleep(0.8)
+        await asyncio.sleep(0.6)
         reel2_embed = discord.Embed(
             title="🎰 Slot Machine 🎰",
             description="**Spinning...**",
@@ -164,19 +171,53 @@ class Slots(commands.Cog):
         )
         reel2_embed.add_field(
             name="Reels",
-            value=f"**{symbols[0]} | {symbols[1]} | 🎰**",
+            value=f"**{symbols[0]} | {symbols[1]} | 🎰 | 🎰 | 🎰**",
             inline=False
         )
         reel2_embed.set_footer(text=f"Bet: {format_coins(bet)}")
         reel2_embed.set_thumbnail(url=interaction.user.display_avatar.url)
         await message.edit(embed=reel2_embed)
         
-        # Step 4: Final reel stops - show result
-        await asyncio.sleep(1.0)
+        # Step 4: Third reel stops
+        await asyncio.sleep(0.6)
+        reel3_embed = discord.Embed(
+            title="🎰 Slot Machine 🎰",
+            description="**Spinning...**",
+            color=discord.Color.blue(),
+        )
+        reel3_embed.add_field(
+            name="Reels",
+            value=f"**{symbols[0]} | {symbols[1]} | {symbols[2]} | 🎰 | 🎰**",
+            inline=False
+        )
+        reel3_embed.set_footer(text=f"Bet: {format_coins(bet)}")
+        reel3_embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        await message.edit(embed=reel3_embed)
+        
+        # Step 5: Fourth reel stops
+        await asyncio.sleep(0.6)
+        reel4_embed = discord.Embed(
+            title="🎰 Slot Machine 🎰",
+            description="**Spinning...**",
+            color=discord.Color.blue(),
+        )
+        reel4_embed.add_field(
+            name="Reels",
+            value=f"**{symbols[0]} | {symbols[1]} | {symbols[2]} | {symbols[3]} | 🎰**",
+            inline=False
+        )
+        reel4_embed.set_footer(text=f"Bet: {format_coins(bet)}")
+        reel4_embed.set_thumbnail(url=interaction.user.display_avatar.url)
+        await message.edit(embed=reel4_embed)
+        
+        # Step 6: Final reel stops - show result
+        await asyncio.sleep(0.8)
         
         # Determine final embed color based on result
-        if payout > bet * 5:  # Big win (jackpot or triple high)
+        if payout > bet * 20:  # Mega win (50x jackpot or 20x)
             final_color = discord.Color.gold()
+        elif payout > bet * 5:  # Big win
+            final_color = discord.Color.orange()
         elif payout > 0:
             final_color = discord.Color.green()
         else:
@@ -187,8 +228,8 @@ class Slots(commands.Cog):
             color=final_color,
         )
         
-        # Display the final slot machine
-        slot_display = f"**🎰 | {symbols[0]} | {symbols[1]} | {symbols[2]} | 🎰**"
+        # Display the final slot machine (5 reels)
+        slot_display = f"**🎰 | {symbols[0]} | {symbols[1]} | {symbols[2]} | {symbols[3]} | {symbols[4]} | 🎰**"
         final_embed.add_field(name="Result", value=slot_display, inline=False)
         
         # Show result message

@@ -26,14 +26,22 @@ class Config:
     DUEL_TIMEOUT_SECONDS: int = 60  # Time to accept a duel challenge
     ROLL_DELAY_SECONDS: float = 1.5  # Delay between rolls for drama
     
-    # Slots constants
+    # Slots constants (5 reels)
     SLOT_SYMBOLS: list[str] = ["🍒", "🍋", "⭐", "💎", "💀"]
-    SLOT_WEIGHTS: list[int] = [30, 25, 20, 15, 10]  # Probability weights
-    SLOT_PAYOUT_TRIPLE_JACKPOT: int = 10  # 💎💎💎
-    SLOT_PAYOUT_TRIPLE_HIGH: int = 5      # ⭐⭐⭐
-    SLOT_PAYOUT_TRIPLE_MID: int = 3       # 🍋🍋🍋 or 🍒🍒🍒
-    SLOT_PAYOUT_DOUBLE: int = 2           # Any 2 matching
-    SLOT_PAYOUT_DEATH: int = -2           # 💀💀💀 (lose double)
+    SLOT_WEIGHTS: list[int] = [35, 30, 20, 10, 5]  # Probability weights (harder to win)
+    SLOT_PAYOUT_FIVE_JACKPOT: int = 50    # 💎💎💎💎💎 (mega jackpot!)
+    SLOT_PAYOUT_FIVE_HIGH: int = 20       # ⭐⭐⭐⭐⭐
+    SLOT_PAYOUT_FIVE_MID: int = 10        # 🍋🍋🍋🍋🍋 or 🍒🍒🍒🍒🍒
+    SLOT_PAYOUT_FOUR_MATCH: int = 5       # Any 4 matching
+    SLOT_PAYOUT_THREE_MATCH: int = 2      # Any 3 matching
+    SLOT_PAYOUT_DEATH: int = -3           # 💀💀💀💀💀 (lose triple!)
+    
+    # Roulette constants (American/European wheel simulation)
+    ROULETTE_RED_CHANCE: int = 18         # Red slots out of 37
+    ROULETTE_BLACK_CHANCE: int = 18       # Black slots out of 37
+    ROULETTE_GREEN_CHANCE: int = 1        # Green (0) slot out of 37
+    ROULETTE_PAYOUT_RED_BLACK: int = 2    # 2x payout for red/black
+    ROULETTE_PAYOUT_GREEN: int = 14       # 14x payout for green
     
     @classmethod
     def validate(cls) -> None:

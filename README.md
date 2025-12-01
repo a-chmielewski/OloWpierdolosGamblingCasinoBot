@@ -6,6 +6,7 @@ A self-hosted Discord bot that provides a persistent, in-server casino/economy f
 
 - **Virtual Economy**: Persistent coin balance per user (no real money)
 - **Deathroll Duels**: WoW-style decreasing roll 1v1 gambling
+- **Slot Machine**: Classic 3-reel slots with jackpots and special combinations
 - **Daily Rewards**: Claim free coins every 24 hours
 - **Leaderboards**: See the richest players
 - **Statistics**: Detailed stats for each player
@@ -25,6 +26,7 @@ A self-hosted Discord bot that provides a persistent, in-server casino/economy f
 |---------|-------------|
 | `/duel_start @user <amount>` | Challenge someone to a deathroll duel |
 | `/duel_cancel` | Cancel your pending duel challenge |
+| `/slots <bet>` | Play the slot machine with your bet |
 
 ### Stats
 | Command | Description |
@@ -103,6 +105,26 @@ Deathroll is a WoW-inspired gambling game:
 5. Players alternate, each rolling 1 to previous roll
 6. **Player who rolls 1 loses the entire pot!**
 
+## How Slots Work
+
+The slot machine is a classic 3-reel game with 5 symbols:
+
+**Symbols:** 🍒 Cherry | 🍋 Lemon | ⭐ Star | 💎 Diamond | 💀 Skull
+
+**Payout Rules:**
+
+| Combination | Payout | Example |
+|------------|--------|---------|
+| 💎 💎 💎 | 10x bet | JACKPOT! |
+| ⭐ ⭐ ⭐ | 5x bet | Triple stars |
+| 🍋 🍋 🍋 | 3x bet | Triple lemons |
+| 🍒 🍒 🍒 | 3x bet | Triple cherries |
+| Any 2 matching | 2x bet | Small win |
+| 💀 💀 💀 | **LOSE 2x bet** | Death curse! |
+| No match | Lose bet | Better luck next time |
+
+The symbols have weighted probabilities - diamonds are rarer than cherries!
+
 ## Tech Stack
 
 - **Python 3.10+** with asyncio
@@ -126,6 +148,7 @@ OloWpierdolosGamblingCasinoBot/
 │   ├── cogs/
 │   │   ├── economy.py       # /register, /balance, /daily
 │   │   ├── duel.py          # Deathroll game
+│   │   ├── slots.py         # Slot machine game
 │   │   ├── stats.py         # /stats, /leaderboard
 │   │   └── admin.py         # Admin commands
 │   └── utils/

@@ -61,9 +61,12 @@ class Stats(commands.Cog):
         net_symbol = "+" if net_profit >= 0 else ""
         net_color = discord.Color.green() if net_profit >= 0 else discord.Color.red()
         
-        # Calculate win rate
+        # Calculate win rates
         total_duels = game_stats["duels_played"]
         duel_winrate = (game_stats["duels_won"] / total_duels * 100) if total_duels > 0 else 0
+        
+        total_slots = game_stats["slots_played"]
+        slots_winrate = (game_stats["slots_won"] / total_slots * 100) if total_slots > 0 else 0
         
         embed = discord.Embed(
             title=f"📊 {target.display_name}'s Statistics",
@@ -102,6 +105,18 @@ class Stats(commands.Cog):
                 f"**Won:** {game_stats['duels_won']}\n"
                 f"**Lost:** {game_stats['duels_lost']}\n"
                 f"**Win Rate:** {duel_winrate:.1f}%"
+            ),
+            inline=True,
+        )
+        
+        # Slots section
+        embed.add_field(
+            name="🎰 Slot Machine",
+            value=(
+                f"**Played:** {game_stats['slots_played']}\n"
+                f"**Won:** {game_stats['slots_won']}\n"
+                f"**Lost:** {game_stats['slots_lost']}\n"
+                f"**Win Rate:** {slots_winrate:.1f}%"
             ),
             inline=True,
         )

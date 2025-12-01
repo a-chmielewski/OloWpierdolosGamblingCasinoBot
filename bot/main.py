@@ -54,6 +54,7 @@ class CasinoBot(commands.Bot):
         cog_files = [
             "cogs.economy",
             "cogs.duel",
+            "cogs.slots",
             "cogs.stats",
             "cogs.admin",
         ]

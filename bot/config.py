@@ -26,6 +26,15 @@ class Config:
     DUEL_TIMEOUT_SECONDS: int = 60  # Time to accept a duel challenge
     ROLL_DELAY_SECONDS: float = 1.5  # Delay between rolls for drama
     
+    # Slots constants
+    SLOT_SYMBOLS: list[str] = ["🍒", "🍋", "⭐", "💎", "💀"]
+    SLOT_WEIGHTS: list[int] = [30, 25, 20, 15, 10]  # Probability weights
+    SLOT_PAYOUT_TRIPLE_JACKPOT: int = 10  # 💎💎💎
+    SLOT_PAYOUT_TRIPLE_HIGH: int = 5      # ⭐⭐⭐
+    SLOT_PAYOUT_TRIPLE_MID: int = 3       # 🍋🍋🍋 or 🍒🍒🍒
+    SLOT_PAYOUT_DOUBLE: int = 2           # Any 2 matching
+    SLOT_PAYOUT_DEATH: int = -2           # 💀💀💀 (lose double)
+    
     @classmethod
     def validate(cls) -> None:
         """Validate required configuration."""

@@ -119,6 +119,57 @@ Created `bot/cogs/admin.py` with:
 
 ---
 
+## Phase 6: Slots Game
+
+### 6.1 Configuration
+**Status:** Done
+
+Updated `bot/config.py` with slots constants:
+- SLOT_SYMBOLS: ["🍒", "🍋", "⭐", "💎", "💀"]
+- SLOT_WEIGHTS: Probability weights for weighted random selection
+- Payout multipliers for different combinations (jackpot 10x, triple 5x/3x, double 2x, death curse -2x)
+
+### 6.2 Slots cog
+**Status:** Done
+
+Created `bot/cogs/slots.py` with:
+- `/slots <bet>`: Play the slot machine
+- Validation: user registered, positive bet, sufficient balance
+- Weighted random symbol generation using `random.choices()`
+- Payout calculation:
+  - Triple diamonds (💎💎💎): 10x jackpot
+  - Triple stars (⭐⭐⭐): 5x
+  - Triple lemons/cherries: 3x
+  - Any two matching: 2x
+  - Triple skulls (💀💀💀): LOSE 2x (death curse)
+  - No match: lose bet
+- Balance updates with SLOTS_WIN/SLOTS_LOSS transaction reasons
+- Rich embeds with color coding (gold for jackpot, green for wins, red for losses)
+- Slot machine visual display with symbols
+
+### 6.3 Statistics
+**Status:** Done
+
+Updated `bot/database/crud.py`:
+- Added slots stats queries to `get_user_game_stats()`
+- Tracks slots_played, slots_won, slots_lost
+- Includes slots transactions in biggest win/loss calculations
+
+Updated `bot/cogs/stats.py`:
+- Added 🎰 Slot Machine section to `/stats` command
+- Displays games played, won, lost, and win rate
+
+### 6.4 Documentation
+**Status:** Done
+
+Updated `README.md`:
+- Added slot machine to features list
+- Added `/slots <bet>` to gambling commands table
+- Added "How Slots Work" section with payout rules table
+- Updated project structure to include slots.py
+
+---
+
 ## Utilities
 
 ### helpers.py

@@ -8,6 +8,7 @@ A self-hosted Discord bot that provides a persistent, in-server casino/economy f
 - **Deathroll Duels**: WoW-style decreasing roll 1v1 gambling
 - **Slot Machine**: Classic 5-reel slots with jackpots and special combinations
 - **Roulette**: Color-based roulette betting on red, black, or green
+- **Group Pot High-Roll**: Multi-player game where highest roller wins from lowest
 - **Daily Rewards**: Claim free coins every 24 hours
 - **Leaderboards**: See the richest players
 - **Statistics**: Detailed stats for each player
@@ -29,6 +30,10 @@ A self-hosted Discord bot that provides a persistent, in-server casino/economy f
 | `/duel_cancel` | Cancel your pending duel challenge |
 | `/slots <bet>` | Play the slot machine with your bet |
 | `/roulette <bet> <choice>` | Bet on red, black, or green in roulette |
+| `/group_start <amount>` | Start a group pot high-roll game |
+| `/group_join` | Join a pending group pot game in this channel |
+| `/group_leave` | Leave a pending group pot game |
+| `/group_start_roll` | Begin the group pot game (creator only) |
 
 ### Stats
 | Command | Description |
@@ -153,6 +158,38 @@ Roulette is a color-based betting game simulating a European roulette wheel:
 - High risk, high reward on green for brave gamblers
 - Simple but exciting gameplay for quick rounds
 
+## How Group Pot Works
+
+The Group Pot is a multi-player high-roll game where the highest roller wins coins from the lowest roller:
+
+**Game Flow:**
+
+1. **Creator Starts:** Someone uses `/group_start <amount>` to create a game
+2. **Players Join:** Others use `/group_join` to join (must have the bet amount)
+3. **Game Begins:** Creator uses `/group_start_roll` when ready (minimum 2 players)
+4. **Rolling:** Each player rolls a random number from 1 to the bet amount
+5. **Winner & Loser:** Highest roll wins, lowest roll loses
+6. **Payout:** Winner receives `(highest_roll - lowest_roll)` coins from the loser
+
+**Example:**
+- Bet amount: 50,000 coins
+- Player A rolls: 38,412
+- Player B rolls: 45,891 (highest)
+- Player C rolls: 12,003 (lowest)
+- Result: Player B wins 33,888 coins (45,891 - 12,003) from Player C
+
+**Important Notes:**
+- No money is deducted upfront - only winner and loser are affected
+- Ties are broken with automatic re-rolls
+- Creator can cancel by leaving before the game starts
+- Only one group pot game per channel at a time
+
+**Features:**
+- Dramatic animated roll reveals for each participant
+- Automatic tie-breaking for fair results
+- Supports unlimited participants (2+ players required)
+- Perfect for group gambling sessions with friends
+
 ## Tech Stack
 
 - **Python 3.10+** with asyncio
@@ -178,6 +215,7 @@ OloWpierdolosGamblingCasinoBot/
 │   │   ├── duel.py          # Deathroll game
 │   │   ├── slots.py         # Slot machine game
 │   │   ├── roulette.py      # Roulette game
+│   │   ├── group_pot.py     # Group pot high-roll game
 │   │   ├── stats.py         # /stats, /leaderboard
 │   │   └── admin.py         # Admin commands
 │   └── utils/

@@ -56,6 +56,7 @@ class CasinoBot(commands.Bot):
             "cogs.duel",
             "cogs.slots",
             "cogs.roulette",
+            "cogs.group_pot",
             "cogs.stats",
             "cogs.admin",
         ]

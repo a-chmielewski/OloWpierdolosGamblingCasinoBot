@@ -71,6 +71,9 @@ class Stats(commands.Cog):
         total_roulette = game_stats["roulette_played"]
         roulette_winrate = (game_stats["roulette_won"] / total_roulette * 100) if total_roulette > 0 else 0
         
+        total_group_pot = game_stats["group_pot_played"]
+        group_pot_winrate = (game_stats["group_pot_won"] / total_group_pot * 100) if total_group_pot > 0 else 0
+        
         embed = discord.Embed(
             title=f"📊 {target.display_name}'s Statistics",
             color=net_color,
@@ -132,6 +135,20 @@ class Stats(commands.Cog):
                 f"**Won:** {game_stats['roulette_won']}\n"
                 f"**Lost:** {game_stats['roulette_lost']}\n"
                 f"**Win Rate:** {roulette_winrate:.1f}%"
+            ),
+            inline=True,
+        )
+        
+        embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
+        
+        # Group Pot section
+        embed.add_field(
+            name="🎲 Group Pot",
+            value=(
+                f"**Played:** {game_stats['group_pot_played']}\n"
+                f"**Won:** {game_stats['group_pot_won']}\n"
+                f"**Lost:** {game_stats['group_pot_lost']}\n"
+                f"**Win Rate:** {group_pot_winrate:.1f}%"
             ),
             inline=True,
         )

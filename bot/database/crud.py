@@ -418,6 +418,28 @@ async def get_user_game_stats(
     )
     roulette_won = roulette_won_result.scalar() or 0
     
+    # Get group pot stats
+    group_pot_played_result = await session.execute(
+        select(func.count(Transaction.id))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.reason.in_([
+                TransactionReason.GROUP_POT_WIN,
+                TransactionReason.GROUP_POT_LOSS,
+            ])
+        )
+    )
+    group_pot_played = group_pot_played_result.scalar() or 0
+    
+    group_pot_won_result = await session.execute(
+        select(func.count(Transaction.id))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.reason == TransactionReason.GROUP_POT_WIN,
+        )
+    )
+    group_pot_won = group_pot_won_result.scalar() or 0
+    
     # Get biggest win/loss from transactions
     biggest_win_result = await session.execute(
         select(func.max(Transaction.amount))
@@ -459,6 +481,9 @@ async def get_user_game_stats(
         "roulette_played": roulette_played,
         "roulette_won": roulette_won,
         "roulette_lost": roulette_played - roulette_won,
+        "group_pot_played": group_pot_played,
+        "group_pot_won": group_pot_won,
+        "group_pot_lost": group_pot_played - group_pot_won,
         "biggest_win": biggest_win,
         "biggest_loss": abs(biggest_loss),
     }

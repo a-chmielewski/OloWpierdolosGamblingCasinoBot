@@ -221,6 +221,73 @@ Updated `README.md`:
 
 ---
 
+## Phase 8: Group Pot High-Roll Game
+
+### 8.1 Group Pot Cog
+**Status:** Done
+
+Created `bot/cogs/group_pot.py` with:
+- `/group_start <amount>`: Create GROUP_POT GameSession in PENDING state
+  - Stores bet amount in game data (JSON)
+  - Creator auto-joins as first participant
+  - Validation for registered user, positive amount, sufficient balance
+  - No active group pot game per channel at a time
+- `/group_join`: Join pending game in same channel
+  - Validates user registration, balance, not already joined
+  - Creates DuelParticipant record for each joiner
+  - Updates game embed showing all participants
+- `/group_leave`: Leave pending game before it starts
+  - Removes participant from game
+  - Cancels game if creator leaves or no participants remain
+- `/group_start_roll`: Begin the game (creator only)
+  - Validation: minimum 2 participants, game still pending
+  - Rolls for each participant: randint(1, amount)
+  - Stores rolls in DuelParticipant.result_value
+  - Determines winner (highest roll) and loser (lowest roll)
+  - Handles ties with automatic re-rolls among tied players
+  - Calculates transfer amount: highest_roll - lowest_roll
+  - Transfers money from loser to winner (no upfront deduction)
+  - Creates transactions with GROUP_POT_WIN and GROUP_POT_LOSS
+  - Animated roll reveals with dramatic pauses
+  - Final summary showing all rolls, winner, and transfer amount
+
+### 8.2 Statistics
+**Status:** Done
+
+Updated `bot/database/crud.py`:
+- Added group pot stats queries to `get_user_game_stats()`
+- Tracks group_pot_played, group_pot_won, group_pot_lost
+- Includes group pot transactions in biggest win/loss calculations
+
+Updated `bot/cogs/stats.py`:
+- Added 🎲 Group Pot section to `/stats` command
+- Displays games played, won, lost, and win rate
+
+Updated `bot/main.py`:
+- Added "cogs.group_pot" to cog loading list
+
+### 8.3 Documentation
+**Status:** Done
+
+Updated `README.md`:
+- Added "Group Pot High-Roll" to features list
+- Added group pot commands to gambling table:
+  - `/group_start <amount>` - Start a group pot game
+  - `/group_join` - Join pending game
+  - `/group_leave` - Leave pending game
+  - `/group_start_roll` - Begin the game (creator only)
+- Added "How Group Pot Works" section explaining:
+  - Multi-player game flow
+  - Roll mechanics (1 to bet amount)
+  - Winner/loser determination
+  - Payout calculation (difference between highest and lowest)
+  - No upfront deduction - only winner and loser affected
+  - Tie-breaking with re-rolls
+  - Channel-based game restrictions
+- Updated project structure to include group_pot.py
+
+---
+
 ## Utilities
 
 ### helpers.py

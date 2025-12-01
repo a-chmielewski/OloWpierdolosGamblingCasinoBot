@@ -1,6 +1,6 @@
 """Utilities package for Olo Wpierdolo's Gambling Casino Bot."""
 
-from bot.utils.helpers import (
+from utils.helpers import (
     format_coins,
     get_user_lock,
     UserLockManager,

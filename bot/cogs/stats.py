@@ -7,14 +7,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.database.database import get_session
-from bot.database.crud import (
+from database.database import get_session
+from database.crud import (
     get_user_by_discord_id,
     get_richest_users,
     get_user_rank,
     get_user_game_stats,
 )
-from bot.utils.helpers import format_coins
+from utils.helpers import format_coins
 
 logger = logging.getLogger(__name__)
 

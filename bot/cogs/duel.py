@@ -10,9 +10,9 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.config import config
-from bot.database.database import get_session
-from bot.database.crud import (
+from config import config
+from database.database import get_session
+from database.crud import (
     get_user_by_discord_id,
     get_user_by_id,
     update_user_balance,
@@ -26,8 +26,8 @@ from bot.database.crud import (
     get_duel_participants,
     update_participant_result,
 )
-from bot.database.models import GameType, GameStatus, TransactionReason
-from bot.utils.helpers import format_coins, get_user_lock
+from database.models import GameType, GameStatus, TransactionReason
+from utils.helpers import format_coins, get_user_lock
 
 logger = logging.getLogger(__name__)
 

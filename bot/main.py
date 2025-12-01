@@ -8,8 +8,8 @@ from pathlib import Path
 import discord
 from discord.ext import commands
 
-from bot.config import config
-from bot.database.database import init_db, close_db
+from config import config
+from database.database import init_db, close_db
 
 # Configure logging
 logging.basicConfig(
@@ -52,10 +52,10 @@ class CasinoBot(commands.Bot):
         
         # Load cogs
         cog_files = [
-            "bot.cogs.economy",
-            "bot.cogs.duel",
-            "bot.cogs.stats",
-            "bot.cogs.admin",
+            "cogs.economy",
+            "cogs.duel",
+            "cogs.stats",
+            "cogs.admin",
         ]
         
         for cog in cog_files:

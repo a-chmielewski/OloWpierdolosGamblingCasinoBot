@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 
-from bot.config import config
-from bot.database.models import Base
+from config import config
+from database.models import Base
 
 logger = logging.getLogger(__name__)
 

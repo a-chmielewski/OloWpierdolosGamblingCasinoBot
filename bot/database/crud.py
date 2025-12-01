@@ -8,8 +8,8 @@ from typing import Optional, List, Tuple
 from sqlalchemy import select, update, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.config import config
-from bot.database.models import (
+from config import config
+from database.models import (
     User,
     Transaction,
     TransactionReason,

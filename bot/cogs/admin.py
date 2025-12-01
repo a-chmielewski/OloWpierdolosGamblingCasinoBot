@@ -6,15 +6,15 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.config import config
-from bot.database.database import get_session
-from bot.database.crud import (
+from config import config
+from database.database import get_session
+from database.crud import (
     get_user_by_discord_id,
     update_user_balance,
     reset_user_balance,
 )
-from bot.database.models import TransactionReason
-from bot.utils.helpers import format_coins, get_user_lock
+from database.models import TransactionReason
+from utils.helpers import format_coins, get_user_lock
 
 logger = logging.getLogger(__name__)
 

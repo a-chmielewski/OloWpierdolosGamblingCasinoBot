@@ -34,12 +34,8 @@ class Tier(commands.Cog):
         empty = length - filled
         return f"[{'█' * filled}{'░' * empty}] {progress:.1f}%"
     
-    @app_commands.command(
-        name="tier",
-        description="View your tier progression and betting limits"
-    )
-    async def tier(self, interaction: discord.Interaction) -> None:
-        """Display user's tier information and progression."""
+    async def _display_tier_info(self, interaction: discord.Interaction) -> None:
+        """Core logic to display user's tier information and progression."""
         async with get_session() as session:
             user = await get_user_by_discord_id(session, interaction.user.id)
             
@@ -152,6 +148,22 @@ class Tier(commands.Cog):
             embed.set_thumbnail(url=interaction.user.display_avatar.url)
         
         await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(
+        name="tier",
+        description="View your tier progression and betting limits"
+    )
+    async def tier(self, interaction: discord.Interaction) -> None:
+        """Display user's tier information and progression."""
+        await self._display_tier_info(interaction)
+    
+    @app_commands.command(
+        name="tiers",
+        description="View your tier progression and betting limits (alias for /tier)"
+    )
+    async def tiers(self, interaction: discord.Interaction) -> None:
+        """Display user's tier information and progression (alias)."""
+        await self._display_tier_info(interaction)
 
 
 async def setup(bot: commands.Bot) -> None:

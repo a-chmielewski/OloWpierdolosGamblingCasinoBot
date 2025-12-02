@@ -471,14 +471,14 @@ class AnimalRace(commands.Cog):
             # Calculate pot and payouts
             total_pot = len(participants) * bet_amount
             
+            # Calculate XP reward (moved outside if block to be accessible in footer)
+            xp_earned = calculate_xp_reward(bet_amount)
+            tier_ups = []
+            
             if len(winning_participants) > 0:
                 # Split pot among winners
                 payout_per_winner = total_pot // len(winning_participants)
                 profit_per_winner = payout_per_winner - bet_amount
-                
-                # Calculate XP reward
-                xp_earned = calculate_xp_reward(bet_amount)
-                tier_ups = []
                 
                 # Update balances for winners
                 for participant in winning_participants:

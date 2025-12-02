@@ -1,10 +1,10 @@
-"""Migration script to add streak columns to users table.
+"""Migration script to add missing columns to users table.
 
-Run this script once to add the new streak columns to an existing database.
+Run this script once to add new columns to an existing database.
 Safe to run multiple times - it will skip columns that already exist.
 
 Usage:
-    python -m migrations.add_streak_columns
+    python -m bot.migrations.add_streak_columns
 """
 
 import asyncio
@@ -23,10 +23,14 @@ logger = logging.getLogger(__name__)
 
 # New columns to add to the users table
 NEW_COLUMNS = [
+    # Streak columns
     ("daily_streak", "INTEGER DEFAULT 0 NOT NULL"),
     ("daily_streak_best", "INTEGER DEFAULT 0 NOT NULL"),
     ("hourly_streak", "INTEGER DEFAULT 0 NOT NULL"),
     ("hourly_streak_best", "INTEGER DEFAULT 0 NOT NULL"),
+    # XP/Level columns (may have been missing)
+    ("experience_points", "INTEGER DEFAULT 0 NOT NULL"),
+    ("level", "INTEGER DEFAULT 1 NOT NULL"),
 ]
 
 

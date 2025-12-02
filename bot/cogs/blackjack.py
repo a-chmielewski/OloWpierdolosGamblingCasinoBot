@@ -75,12 +75,14 @@ class GameModeView(discord.ui.View):
 class JoinGameView(discord.ui.View):
     """View with button to join a pending blackjack game."""
     
-    def __init__(self, game_id: int, bet_amount: int, existing_player_ids: List[int]):
+    def __init__(self, game_id: int, bet_amount: int, existing_player_ids: List[int], creator_id: int):
         super().__init__(timeout=config.BLACKJACK_JOIN_TIMEOUT_SECONDS)
         self.game_id = game_id
         self.bet_amount = bet_amount
         self.existing_player_ids = existing_player_ids
         self.new_players: List[int] = []
+        self.creator_id = creator_id
+        self.early_start = False
     
     @discord.ui.button(label="Join Game", style=discord.ButtonStyle.success, emoji="🃏")
     async def join_button(
@@ -131,6 +133,26 @@ class JoinGameView(discord.ui.View):
         
         await interaction.response.send_message(
             f"✅ {interaction.user.display_name} joined the game!",
+            ephemeral=False,
+        )
+    
+    @discord.ui.button(label="Start Game", style=discord.ButtonStyle.primary, emoji="🎮")
+    async def start_button(
+        self, interaction: discord.Interaction, button: discord.ui.Button
+    ) -> None:
+        """Start the game early (creator only)."""
+        # Check if user is the creator
+        if interaction.user.id != self.creator_id:
+            await interaction.response.send_message(
+                "Only the game creator can start the game early!",
+                ephemeral=True,
+            )
+            return
+        
+        self.early_start = True
+        self.stop()
+        await interaction.response.send_message(
+            f"🎮 {interaction.user.display_name} started the game!",
             ephemeral=False,
         )
 
@@ -255,7 +277,7 @@ class Blackjack(commands.Cog):
                     f"**Bet Amount:** {format_coins(bet)}\n"
                     f"**Creator:** {interaction.user.display_name}\n\n"
                     f"Other players can join by clicking the button below!\n"
-                    f"Game starts in {config.BLACKJACK_JOIN_TIMEOUT_SECONDS} seconds or when creator starts."
+                    f"Game starts in {config.BLACKJACK_JOIN_TIMEOUT_SECONDS} seconds or when creator clicks Start Game."
                 ),
                 color=discord.Color.gold(),
             )
@@ -264,6 +286,7 @@ class Blackjack(commands.Cog):
                 game_id=game_id,
                 bet_amount=bet,
                 existing_player_ids=[interaction.user.id],
+                creator_id=interaction.user.id,
             )
             
             await message.edit(embed=embed, view=join_view)
@@ -335,7 +358,15 @@ class Blackjack(commands.Cog):
         # Each player takes their turn
         for player_id in player_discord_ids:
             if player_hands[player_id].is_blackjack():
-                # Player has blackjack, skip their turn
+                # Player has blackjack - show congratulations and skip their turn
+                member = await channel.guild.fetch_member(player_id)
+                blackjack_embed = discord.Embed(
+                    title=f"🃏 {member.display_name} has BLACKJACK!",
+                    description=f"{format_hand_display(player_hands[player_id])}\n\n**Natural 21!** Waiting for dealer...",
+                    color=discord.Color.gold(),
+                )
+                await channel.send(embed=blackjack_embed)
+                await asyncio.sleep(config.BLACKJACK_CARD_DELAY_SECONDS)
                 continue
             
             await self._player_turn(channel, player_id, player_hands[player_id], dealer_hand, deck)

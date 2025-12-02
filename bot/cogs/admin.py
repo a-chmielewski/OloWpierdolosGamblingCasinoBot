@@ -408,16 +408,16 @@ class Admin(commands.Cog):
     ) -> None:
         """Handle admin command errors."""
         if isinstance(error, app_commands.CheckFailure):
-            await interaction.response.send_message(
-                "❌ Only the server owner can use admin commands!",
-                ephemeral=True,
-            )
+            message = "❌ Only the server owner can use admin commands!"
         else:
             logger.error(f"Admin command error: {error}")
-            await interaction.response.send_message(
-                f"❌ An error occurred: {error}",
-                ephemeral=True,
-            )
+            message = f"❌ An error occurred: {error}"
+        
+        # Check if interaction was already responded to
+        if interaction.response.is_done():
+            await interaction.followup.send(message, ephemeral=True)
+        else:
+            await interaction.response.send_message(message, ephemeral=True)
 
 
 async def setup(bot: commands.Bot) -> None:

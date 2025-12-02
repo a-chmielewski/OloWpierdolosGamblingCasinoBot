@@ -60,6 +60,7 @@ class CasinoBot(commands.Bot):
             "cogs.blackjack",
             "cogs.animal_race",
             "cogs.stats",
+            "cogs.tier",
             "cogs.admin",
         ]
         

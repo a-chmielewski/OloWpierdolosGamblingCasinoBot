@@ -57,6 +57,43 @@ class Config:
     ROULETTE_GREEN_CHANCE: int = 1        # Green (0) slot out of 37
     ROULETTE_PAYOUT_RED_BLACK: int = 2    # 2x payout for red/black
     ROULETTE_PAYOUT_GREEN: int = 14       # 14x payout for green
+    ROULETTE_JOIN_TIMEOUT_SECONDS: int = 45  # Time window for players to join multiplayer
+    
+    # Roulette animation timings
+    ROULETTE_ANIMATION_FAST_INTERVAL: float = 0.3    # Fast spin interval
+    ROULETTE_ANIMATION_MEDIUM_INTERVAL: float = 0.5  # Medium spin interval
+    ROULETTE_ANIMATION_SLOW_INTERVAL: float = 0.8    # Slow spin interval
+    ROULETTE_PHYSICS_FAKEOUT_CHANCE: float = 0.05    # 5% chance for physics fake-out
+    
+    # Roulette dealer calls
+    ROULETTE_DEALER_CALLS_OPENING: list[str] = [
+        "No more bets!",
+        "Ball is in motion...",
+        "High rollers are sweating...",
+        "Place your bets... wait, too late!",
+        "The wheel is spinning!",
+    ]
+    ROULETTE_DEALER_CALLS_SPINNING: list[str] = [
+        "The wheel is spinning...",
+        "Where will it land?",
+        "Round and round it goes...",
+        "Lady Luck is watching...",
+        "The tension is real!",
+    ]
+    ROULETTE_DEALER_CALLS_CLOSING_WIN: list[str] = [
+        "We have a winner!",
+        "Congratulations!",
+        "What a hit!",
+        "The house lost this one!",
+        "Cash out time!",
+    ]
+    ROULETTE_DEALER_CALLS_CLOSING_LOSS: list[str] = [
+        "Better luck next time!",
+        "The house always wins... eventually!",
+        "So close, yet so far!",
+        "Don't give up!",
+        "Try again!",
+    ]
     
     # Blackjack constants
     BLACKJACK_JOIN_TIMEOUT_SECONDS: int = 45    # Time window for players to join
@@ -75,9 +112,9 @@ class Config:
     # Racer configurations: name, emoji, min_speed, max_speed
     RACE_RACERS: list[dict] = [
         {"name": "Turtle", "emoji": "🐢", "min_speed": 1, "max_speed": 4},  # Slow but steady
-        {"name": "Hare", "emoji": "🐇", "min_speed": 3, "max_speed": 8},  # Fast but inconsistent
-        {"name": "Chicken", "emoji": "🐓", "min_speed": 2, "max_speed": 6},  # Middle ground
-        {"name": "Dino", "emoji": "🦖", "min_speed": 2, "max_speed": 7},  # Unpredictable
+        {"name": "Trufel", "emoji": ":kitqW:", "min_speed": 3, "max_speed": 8},  # Fast but inconsistent
+        {"name": "Restart", "emoji": ":restart:", "min_speed": 2, "max_speed": 6},  # Middle ground
+        {"name": "Khiro", "emoji": ":khiro:", "min_speed": 2, "max_speed": 7},  # Unpredictable
         {"name": "Kubica", "emoji": ":kubica:", "min_speed": 1, "max_speed": 8},  # Wildcard - widest range
     ]
     

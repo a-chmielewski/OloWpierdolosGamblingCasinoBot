@@ -9,6 +9,7 @@ from typing import Optional
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.ui import View, Button
 
 from database.database import get_session
 from database.crud import (
@@ -26,6 +27,176 @@ from database.models import GameType, GameStatus, TransactionReason
 from utils.helpers import format_coins, get_user_lock
 
 logger = logging.getLogger(__name__)
+
+
+class GroupPotView(View):
+    """View with Join and Start buttons for group pot game."""
+    
+    def __init__(self, bot: commands.Bot, game_id: int, creator_id: int):
+        super().__init__(timeout=None)
+        self.bot = bot
+        self.game_id = game_id
+        self.creator_id = creator_id
+    
+    @discord.ui.button(label="Join Game", style=discord.ButtonStyle.primary, emoji="🎲")
+    async def join_button(self, interaction: discord.Interaction, button: Button):
+        """Handle join button click."""
+        async with get_user_lock(interaction.user.id):
+            async with get_session() as session:
+                user = await get_user_by_discord_id(session, interaction.user.id)
+                
+                if not user:
+                    await interaction.response.send_message(
+                        "❌ You are not registered! Use `/register` first.",
+                        ephemeral=True,
+                    )
+                    return
+                
+                # Get game
+                game = await get_game_session(session, self.game_id)
+                if not game or game.status != GameStatus.PENDING:
+                    await interaction.response.send_message(
+                        "❌ This game is no longer available!",
+                        ephemeral=True,
+                    )
+                    return
+                
+                game_data = json.loads(game.data) if game.data else {}
+                amount = game_data.get("amount", 0)
+                
+                # Check if already joined
+                participants = await get_duel_participants(session, game.id)
+                if any(p.user_id == user.id for p in participants):
+                    await interaction.response.send_message(
+                        "❌ You're already in this game!",
+                        ephemeral=True,
+                    )
+                    return
+                
+                # Add participant
+                await add_duel_participant(
+                    session,
+                    game_id=game.id,
+                    user_id=user.id,
+                    bet_amount=amount,
+                )
+                
+                await session.commit()
+                
+                # Get updated participants
+                participants = await get_duel_participants(session, game.id)
+        
+        await interaction.response.send_message(
+            f"✅ {interaction.user.display_name} joined the game!",
+        )
+        
+        # Update embed
+        async with get_session() as session:
+            game = await get_game_session(session, self.game_id)
+            if game and game.status == GameStatus.PENDING:
+                participants = await get_duel_participants(session, game.id)
+                await self._update_message(interaction.message, game, participants)
+        
+        logger.info(f"User {user.id} joined group pot game {self.game_id}")
+    
+    @discord.ui.button(label="Start Game", style=discord.ButtonStyle.success, emoji="🚀")
+    async def start_button(self, interaction: discord.Interaction, button: Button):
+        """Handle start button click (creator only)."""
+        async with get_session() as session:
+            user = await get_user_by_discord_id(session, interaction.user.id)
+            
+            if not user:
+                await interaction.response.send_message(
+                    "❌ You are not registered!",
+                    ephemeral=True,
+                )
+                return
+            
+            # Check if user is the creator
+            game = await get_game_session(session, self.game_id)
+            if not game or game.created_by_user_id != user.id:
+                await interaction.response.send_message(
+                    "❌ Only the game creator can start!",
+                    ephemeral=True,
+                )
+                return
+            
+            if game.status != GameStatus.PENDING:
+                await interaction.response.send_message(
+                    "❌ This game is no longer pending!",
+                    ephemeral=True,
+                )
+                return
+            
+            participants = await get_duel_participants(session, game.id)
+            
+            # Check minimum participants
+            if len(participants) < 2:
+                await interaction.response.send_message(
+                    "❌ Need at least 2 participants to start the game!",
+                    ephemeral=True,
+                )
+                return
+            
+            # Set game to ACTIVE
+            await update_game_status(session, self.game_id, GameStatus.ACTIVE)
+            await session.commit()
+        
+        # Disable buttons
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(view=self)
+        
+        # Start the rolling animation
+        await interaction.response.send_message("🎲 Starting the rolls...")
+        
+        # Run the game
+        cog = self.bot.get_cog("GroupPot")
+        if cog:
+            await cog._run_group_pot_game(interaction.channel, self.game_id)
+    
+    async def _update_message(self, message: discord.Message, game, participants):
+        """Update the game message embed."""
+        game_data = json.loads(game.data) if game.data else {}
+        amount = game_data.get("amount", 0)
+        
+        embed = discord.Embed(
+            title="🎲 Group Pot High-Roll Game",
+            description=f"**Bet Amount:** {format_coins(amount)}\n"
+                       f"**Status:** Waiting for players...",
+            color=discord.Color.blue(),
+        )
+        
+        # List participants
+        participant_list = []
+        for p in participants:
+            discord_user = await self.bot.fetch_user(p.user_id)
+            is_creator = p.user_id == game.created_by_user_id
+            prefix = "👑 " if is_creator else "• "
+            participant_list.append(f"{prefix}{discord_user.display_name}")
+        
+        embed.add_field(
+            name=f"Participants ({len(participants)})",
+            value="\n".join(participant_list) if participant_list else "None",
+            inline=False,
+        )
+        
+        embed.add_field(
+            name="How to Play",
+            value=(
+                "• Click **Join Game** to participate\n"
+                "• Creator clicks **Start Game** to begin (min 2 players)\n"
+                "• Highest roll wins the difference from lowest roll"
+            ),
+            inline=False,
+        )
+        
+        embed.set_footer(text="Game ID: " + str(game.id))
+        
+        try:
+            await message.edit(embed=embed)
+        except discord.NotFound:
+            pass
 
 
 class GroupPot(commands.Cog):
@@ -79,10 +250,10 @@ class GroupPot(commands.Cog):
         # List participants
         participant_list = []
         for p in participants:
-            user = await bot.fetch_user(p.user_id)
+            discord_user = await bot.fetch_user(p.user_id)
             is_creator = p.user_id == game.created_by_user_id
             prefix = "👑 " if is_creator else "• "
-            participant_list.append(f"{prefix}{user.display_name}")
+            participant_list.append(f"{prefix}{discord_user.display_name}")
         
         embed.add_field(
             name=f"Participants ({len(participants)})",
@@ -93,9 +264,8 @@ class GroupPot(commands.Cog):
         embed.add_field(
             name="How to Play",
             value=(
-                "• Use `/group_join` to join the game\n"
-                "• Use `/group_leave` to leave before it starts\n"
-                "• Creator uses `/group_start_roll` to begin (min 2 players)\n"
+                "• Click **Join Game** to participate\n"
+                "• Creator clicks **Start Game** to begin (min 2 players)\n"
                 "• Highest roll wins the difference from lowest roll"
             ),
             inline=False,
@@ -104,7 +274,8 @@ class GroupPot(commands.Cog):
         embed.set_footer(text="Game ID: " + str(game.id))
         
         try:
-            await message.edit(embed=embed)
+            view = GroupPotView(bot, game.id, game.created_by_user_id)
+            await message.edit(embed=embed, view=view)
         except discord.NotFound:
             pass
     
@@ -172,11 +343,8 @@ class GroupPot(commands.Cog):
                 )
                 
                 await session.commit()
-                
-                # Get updated participants
-                participants = await get_duel_participants(session, game.id)
         
-        # Send game announcement
+        # Send game announcement with buttons
         embed = discord.Embed(
             title="🎲 Group Pot High-Roll Game",
             description=f"**Bet Amount:** {format_coins(amount)}\n"
@@ -193,9 +361,8 @@ class GroupPot(commands.Cog):
         embed.add_field(
             name="How to Play",
             value=(
-                "• Use `/group_join` to join the game\n"
-                "• Use `/group_leave` to leave before it starts\n"
-                "• Creator uses `/group_start_roll` to begin (min 2 players)\n"
+                "• Click **Join Game** to participate\n"
+                "• Creator clicks **Start Game** to begin (min 2 players)\n"
                 "• Highest roll wins the difference from lowest roll"
             ),
             inline=False,
@@ -203,7 +370,8 @@ class GroupPot(commands.Cog):
         
         embed.set_footer(text=f"Game ID: {game.id}")
         
-        await interaction.response.send_message(embed=embed)
+        view = GroupPotView(self.bot, game.id, creator.id)
+        await interaction.response.send_message(embed=embed, view=view)
         message = await interaction.original_response()
         
         # Store message ID for updates
@@ -219,80 +387,6 @@ class GroupPot(commands.Cog):
         
         logger.info(f"Group pot game {game.id} created by user {creator.id}")
     
-    @app_commands.command(
-        name="group_join",
-        description="Join a pending group pot game in this channel"
-    )
-    async def group_join(self, interaction: discord.Interaction) -> None:
-        """Join a pending group pot game."""
-        async with get_user_lock(interaction.user.id):
-            async with get_session() as session:
-                user = await get_user_by_discord_id(session, interaction.user.id)
-                
-                if not user:
-                    await interaction.response.send_message(
-                        "❌ You are not registered! Use `/register` first.",
-                        ephemeral=True,
-                    )
-                    return
-                
-                # Find pending game in channel
-                game_info = await self._get_pending_group_pot_in_channel(
-                    session, interaction.channel_id
-                )
-                
-                if not game_info:
-                    await interaction.response.send_message(
-                        "❌ No pending group pot game in this channel!",
-                        ephemeral=True,
-                    )
-                    return
-                
-                game, participants = game_info
-                game_data = json.loads(game.data) if game.data else {}
-                amount = game_data.get("amount", 0)
-                
-                # Check if already joined
-                if await self._is_user_in_game(session, user.id, game.id):
-                    await interaction.response.send_message(
-                        "❌ You're already in this game!",
-                        ephemeral=True,
-                    )
-                    return
-                
-                # Add participant
-                await add_duel_participant(
-                    session,
-                    game_id=game.id,
-                    user_id=user.id,
-                    bet_amount=amount,
-                )
-                
-                await session.commit()
-                
-                # Get updated participants
-                participants = await get_duel_participants(session, game.id)
-        
-        await interaction.response.send_message(
-            f"✅ {interaction.user.display_name} joined the game!",
-        )
-        
-        # Update the original message
-        async with get_session() as session:
-            game_info = await self._get_pending_group_pot_in_channel(
-                session, interaction.channel_id
-            )
-            if game_info:
-                game, participants = game_info
-                if game.message_id:
-                    try:
-                        channel = interaction.channel
-                        message = await channel.fetch_message(game.message_id)
-                        await self._update_game_embed(message, game, participants, self.bot)
-                    except discord.NotFound:
-                        pass
-        
-        logger.info(f"User {user.id} joined group pot game {game.id}")
     
     @app_commands.command(
         name="group_leave",
@@ -385,61 +479,15 @@ class GroupPot(commands.Cog):
                     except discord.NotFound:
                         pass
     
-    @app_commands.command(
-        name="group_start_roll",
-        description="Start the group pot game (creator only)"
-    )
-    async def group_start_roll(self, interaction: discord.Interaction) -> None:
-        """Start the rolling phase of the group pot game."""
-        async with get_session() as session:
-            user = await get_user_by_discord_id(session, interaction.user.id)
-            
-            if not user:
-                await interaction.response.send_message(
-                    "❌ You are not registered!",
-                    ephemeral=True,
-                )
-                return
-            
-            # Find pending game in channel
-            game_info = await self._get_pending_group_pot_in_channel(
-                session, interaction.channel_id
-            )
-            
-            if not game_info:
-                await interaction.response.send_message(
-                    "❌ No pending group pot game in this channel!",
-                    ephemeral=True,
-                )
-                return
-            
-            game, participants = game_info
-            
-            # Check if user is the creator
-            if user.id != game.created_by_user_id:
-                await interaction.response.send_message(
-                    "❌ Only the game creator can start the rolls!",
-                    ephemeral=True,
-                )
-                return
-            
-            # Check minimum participants
-            if len(participants) < 2:
-                await interaction.response.send_message(
-                    "❌ Need at least 2 participants to start the game!",
-                    ephemeral=True,
-                )
-                return
-            
-            # Set game to ACTIVE
-            await update_game_status(session, game.id, GameStatus.ACTIVE)
-            await session.commit()
-        
-        # Start the rolling animation
-        await interaction.response.send_message("🎲 Starting the rolls...")
-        
+    async def _run_group_pot_game(self, channel: discord.TextChannel, game_id: int) -> None:
+        """Run the rolling phase of the group pot game."""
         # Roll for each participant
         async with get_session() as session:
+            game = await get_game_session(session, game_id)
+            if not game:
+                return
+            
+            participants = await get_duel_participants(session, game_id)
             game_data = json.loads(game.data) if game.data else {}
             amount = game_data.get("amount", 0)
             
@@ -452,7 +500,7 @@ class GroupPot(commands.Cog):
                 color=discord.Color.blue(),
             )
             
-            message = await interaction.channel.send(embed=roll_embed)
+            message = await channel.send(embed=roll_embed)
             
             # Roll for each participant with animation
             for i, participant in enumerate(participants):

@@ -104,14 +104,6 @@ class JoinGameView(discord.ui.View):
                 )
                 return
             
-            # Check balance
-            if user.balance < self.bet_amount:
-                await interaction.response.send_message(
-                    f"❌ Insufficient balance! You need {format_coins(self.bet_amount)} but have {format_coins(user.balance)}.",
-                    ephemeral=True,
-                )
-                return
-            
             # Check for active game
             active_game = await get_active_game_for_user(session, user.id)
             if active_game:
@@ -169,14 +161,6 @@ class Blackjack(commands.Cog):
             if not user:
                 await interaction.response.send_message(
                     "❌ You are not registered! Use `/register` first.",
-                    ephemeral=True,
-                )
-                return
-            
-            # Check balance
-            if user.balance < bet:
-                await interaction.response.send_message(
-                    f"❌ Insufficient balance! You need {format_coins(bet)} but have {format_coins(user.balance)}.",
                     ephemeral=True,
                 )
                 return
@@ -490,18 +474,6 @@ class Blackjack(commands.Cog):
                     break
                 
                 elif action == "💰" and hand.can_double():  # Double Down
-                    # Check if player has enough balance for double
-                    async with get_session() as session:
-                        user = await get_user_by_discord_id(session, player_id)
-                        if user.balance < hand.bet:
-                            error_embed = discord.Embed(
-                                title="❌ Cannot Double Down",
-                                description="Insufficient balance to double your bet!",
-                                color=discord.Color.red(),
-                            )
-                            await channel.send(embed=error_embed)
-                            continue
-                    
                     hand.is_doubled = True
                     hand.bet *= 2
                     card = deck.deal()

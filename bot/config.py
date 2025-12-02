@@ -18,7 +18,7 @@ class Config:
     DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./casino.db")
     
     # Economy constants
-    STARTING_BALANCE: int = 10_000
+    STARTING_BALANCE: int = 50_000
     DAILY_REWARD: int = 10_000
     DAILY_RESET_HOUR: int = 3  # Daily resets at 3 AM Warsaw time
     HOURLY_REWARD: int = 1_000
@@ -61,11 +61,11 @@ class Config:
     RACE_PROGRESS_BAR_LENGTH: int = 10          # Visual progress bar length
     # Racer configurations: name, emoji, min_speed, max_speed
     RACE_RACERS: list[dict] = [
-        {"name": "Turtle", "emoji": "🐢", "min_speed": 1, "max_speed": 8},
-        {"name": "Hare", "emoji": "🐇", "min_speed": 1, "max_speed": 8},
-        {"name": "Chicken", "emoji": "🐓", "min_speed": 1, "max_speed": 8},
-        {"name": "Dino", "emoji": "🦖", "min_speed": 1, "max_speed": 8},
-        {"name": "Kubica", "emoji": ":kubica:", "min_speed": 1, "max_speed": 8},
+        {"name": "Turtle", "emoji": "🐢", "min_speed": 1, "max_speed": 4},  # Slow but steady
+        {"name": "Hare", "emoji": "🐇", "min_speed": 3, "max_speed": 8},  # Fast but inconsistent
+        {"name": "Chicken", "emoji": "🐓", "min_speed": 2, "max_speed": 6},  # Middle ground
+        {"name": "Dino", "emoji": "🦖", "min_speed": 2, "max_speed": 7},  # Unpredictable
+        {"name": "Kubica", "emoji": ":kubica:", "min_speed": 1, "max_speed": 8},  # Wildcard - widest range
     ]
     
     @classmethod

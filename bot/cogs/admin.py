@@ -13,7 +13,7 @@ from database.crud import (
     update_user_balance,
     reset_user_balance,
 )
-from database.models import TransactionReason
+from database.models import TransactionReason, User
 from utils.helpers import format_coins, get_user_lock
 
 logger = logging.getLogger(__name__)
@@ -245,9 +245,88 @@ class Admin(commands.Cog):
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
     
+    @app_commands.command(
+        name="reset_casino",
+        description="[OWNER ONLY] Reset ALL registered users to 50k balance"
+    )
+    @is_admin()
+    async def reset_casino(
+        self,
+        interaction: discord.Interaction,
+    ) -> None:
+        """Reset all registered users to 50k balance. Guild owner only."""
+        # Double check guild owner
+        if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
+            await interaction.response.send_message(
+                "❌ Only the server owner can use this command!",
+                ephemeral=True,
+            )
+            return
+        
+        # Defer the response as this might take a while
+        await interaction.response.defer(ephemeral=True)
+        
+        async with get_session() as session:
+            # Get all users from database
+            from sqlalchemy import select
+            result = await session.execute(select(User))
+            all_users = result.scalars().all()
+            
+            if not all_users:
+                await interaction.followup.send(
+                    "❌ No registered users found!",
+                    ephemeral=True,
+                )
+                return
+            
+            # Reset all users to 50k
+            reset_count = 0
+            for db_user in all_users:
+                old_balance = db_user.balance
+                await reset_user_balance(session, db_user.id, 50_000)
+                reset_count += 1
+                logger.info(
+                    f"CASINO RESET: User {db_user.name} ({db_user.discord_id}) "
+                    f"reset from {old_balance} to 50,000"
+                )
+        
+        # Send confirmation
+        embed = discord.Embed(
+            title="🎰 Casino Reset Complete!",
+            description=(
+                f"**All users have been reset to {format_coins(50_000)}**\n\n"
+                f"**Users Reset:** {reset_count}\n"
+                f"**New Balance:** {format_coins(50_000)}"
+            ),
+            color=discord.Color.gold(),
+        )
+        embed.set_footer(text=f"Reset by {interaction.user.display_name}")
+        
+        logger.warning(
+            f"CASINO RESET: {interaction.user} ({interaction.user.id}) "
+            f"reset all {reset_count} users to 50,000 balance"
+        )
+        
+        # Send to admin (ephemeral)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+        
+        # Send public announcement
+        if interaction.channel:
+            public_embed = discord.Embed(
+                title="🎰 CASINO RESET! 🎰",
+                description=(
+                    f"The casino has been reset by the owner!\n\n"
+                    f"🪙 **All players now have {format_coins(50_000)}**\n\n"
+                    f"Good luck gambling! 🎲"
+                ),
+                color=discord.Color.gold(),
+            )
+            await interaction.channel.send(embed=public_embed)
+    
     @admin_add_coins.error
     @admin_reset_user.error
     @admin_view_user.error
+    @reset_casino.error
     async def admin_error_handler(
         self,
         interaction: discord.Interaction,

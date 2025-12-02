@@ -33,11 +33,12 @@ logger = logging.getLogger(__name__)
 class JoinRaceView(discord.ui.View):
     """View with buttons to choose which racer to bet on."""
     
-    def __init__(self, game_id: int, bet_amount: int, bot: commands.Bot, guild: discord.Guild):
+    def __init__(self, game_id: int, bet_amount: int, bot: commands.Bot, guild: discord.Guild, creator_id: int):
         super().__init__(timeout=config.RACE_JOIN_TIMEOUT_SECONDS)
         self.game_id = game_id
         self.bet_amount = bet_amount
         self.bot = bot
+        self.creator_id = creator_id
         self.participants_data: dict[int, str] = {}  # user_id -> racer_emoji
         
         # Add button for each racer
@@ -75,6 +76,51 @@ class JoinRaceView(discord.ui.View):
             )
             button.callback = self._create_button_callback(racer_config["emoji"], guild)
             self.add_item(button)
+        
+        # Add Start Race button (creator only)
+        start_button = discord.ui.Button(
+            label="Start Race",
+            emoji="🚀",
+            style=discord.ButtonStyle.success,
+            custom_id="start_race",
+            row=1,  # Put on second row
+        )
+        start_button.callback = self._start_race_callback
+        self.add_item(start_button)
+    
+    async def _start_race_callback(self, interaction: discord.Interaction):
+        """Handle start race button click (creator only)."""
+        # Check if user is the creator
+        if interaction.user.id != self.creator_id:
+            await interaction.response.send_message(
+                "❌ Only the race creator can start the race!",
+                ephemeral=True,
+            )
+            return
+        
+        # Check if at least one person has joined
+        async with get_session() as session:
+            game = await get_game_session(session, self.game_id)
+            if not game or game.status != GameStatus.PENDING:
+                await interaction.response.send_message(
+                    "❌ This race has already started or ended!",
+                    ephemeral=True,
+                )
+                return
+            
+            participants = await get_duel_participants(session, self.game_id)
+            
+            if len(participants) == 0:
+                await interaction.response.send_message(
+                    "❌ No one has placed a bet yet! Wait for players to join.",
+                    ephemeral=True,
+                )
+                return
+        
+        await interaction.response.send_message("🚀 Starting the race early!", ephemeral=False)
+        
+        # Stop the view to start the race
+        self.stop()
     
     def _create_button_callback(self, racer_emoji: str, guild: discord.Guild):
         """Create a callback for a racer button."""
@@ -95,14 +141,6 @@ class JoinRaceView(discord.ui.View):
                 if not user:
                     await interaction.response.send_message(
                         "❌ You are not registered! Use `/register` first.",
-                        ephemeral=True,
-                    )
-                    return
-                
-                # Check balance
-                if user.balance < self.bet_amount:
-                    await interaction.response.send_message(
-                        f"❌ Insufficient balance! You need {format_coins(self.bet_amount)} but have {format_coins(user.balance)}.",
                         ephemeral=True,
                     )
                     return
@@ -201,14 +239,6 @@ class AnimalRace(commands.Cog):
                 )
                 return
             
-            # Check balance
-            if user.balance < bet:
-                await interaction.response.send_message(
-                    f"❌ Insufficient balance! You need {format_coins(bet)} but have {format_coins(user.balance)}.",
-                    ephemeral=True,
-                )
-                return
-            
             # Create game session
             game_data = {
                 "bet_amount": bet,
@@ -263,10 +293,10 @@ class AnimalRace(commands.Cog):
             inline=False,
         )
         
-        embed.set_footer(text=f"Race starts in {config.RACE_JOIN_TIMEOUT_SECONDS} seconds or when 5 players join!")
+        embed.set_footer(text=f"Race starts in {config.RACE_JOIN_TIMEOUT_SECONDS} seconds or when creator clicks Start Race!")
         
         # Create view with racer selection buttons
-        view = JoinRaceView(game_id=game_id, bet_amount=bet, bot=self.bot, guild=interaction.guild)
+        view = JoinRaceView(game_id=game_id, bet_amount=bet, bot=self.bot, guild=interaction.guild, creator_id=interaction.user.id)
         
         await interaction.response.send_message(embed=embed, view=view)
         message = await interaction.original_response()
@@ -277,6 +307,10 @@ class AnimalRace(commands.Cog):
         
         # Wait for timeout or max players
         await view.wait()
+        
+        # Disable all buttons
+        for item in view.children:
+            item.disabled = True
         
         # Check if anyone joined
         async with get_session() as session:

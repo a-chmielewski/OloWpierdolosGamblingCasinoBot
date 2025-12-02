@@ -138,14 +138,6 @@ class GroupPot(commands.Cog):
                     )
                     return
                 
-                # Check balance
-                if creator.balance < amount:
-                    await interaction.response.send_message(
-                        f"❌ Insufficient funds! You have {format_coins(creator.balance)} but need {format_coins(amount)}.",
-                        ephemeral=True,
-                    )
-                    return
-                
                 # Check for existing pending game in channel
                 existing = await self._get_pending_group_pot_in_channel(
                     session, interaction.channel_id
@@ -264,14 +256,6 @@ class GroupPot(commands.Cog):
                 if await self._is_user_in_game(session, user.id, game.id):
                     await interaction.response.send_message(
                         "❌ You're already in this game!",
-                        ephemeral=True,
-                    )
-                    return
-                
-                # Check balance
-                if user.balance < amount:
-                    await interaction.response.send_message(
-                        f"❌ Insufficient funds! You have {format_coins(user.balance)} but need {format_coins(amount)}.",
                         ephemeral=True,
                     )
                     return

@@ -14,7 +14,9 @@ from database.crud import (
     get_or_create_user,
     update_user_balance,
     update_last_daily,
+    update_last_hourly,
     can_claim_daily,
+    can_claim_hourly,
 )
 from database.models import TransactionReason
 from utils.helpers import format_coins, get_user_lock
@@ -46,6 +48,7 @@ class Economy(commands.Cog):
                             f"You have been registered successfully!\n\n"
                             f"**Starting Balance:** {format_coins(config.STARTING_BALANCE)}\n\n"
                             f"Use `/daily` to claim your daily reward.\n"
+                            f"Use `/hourly` to claim your hourly reward.\n"
                             f"Use `/balance` to check your coins.\n"
                             f"Use `/duel_start @user <amount>` to challenge someone!"
                         ),
@@ -161,9 +164,66 @@ class Economy(commands.Cog):
                     description=(
                         f"You received {format_coins(config.DAILY_REWARD)}!\n\n"
                         f"**New Balance:** {format_coins(user.balance)}\n\n"
-                        f"Come back in 24 hours for more!"
+                        f"Daily rewards reset at 3 AM Warsaw time!"
                     ),
                     color=discord.Color.gold(),
+                )
+                embed.set_thumbnail(url=interaction.user.display_avatar.url)
+                
+                await interaction.response.send_message(embed=embed)
+    
+    @app_commands.command(name="hourly", description="Claim your hourly coin reward")
+    async def hourly(self, interaction: discord.Interaction) -> None:
+        """Claim hourly reward that resets at the top of each hour."""
+        async with get_user_lock(interaction.user.id):
+            async with get_session() as session:
+                user = await get_user_by_discord_id(session, interaction.user.id)
+                
+                if not user:
+                    embed = discord.Embed(
+                        title="❌ Not Registered",
+                        description="You are not registered yet! Use `/register` to join the casino.",
+                        color=discord.Color.red(),
+                    )
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                    return
+                
+                can_claim, time_remaining = await can_claim_hourly(session, user.id)
+                
+                if not can_claim:
+                    minutes, seconds = divmod(int(time_remaining.total_seconds()), 60)
+                    
+                    embed = discord.Embed(
+                        title="⏰ Hourly Already Claimed",
+                        description=(
+                            f"You have already claimed your hourly reward!\n\n"
+                            f"**Time until next claim:** {minutes}m {seconds}s"
+                        ),
+                        color=discord.Color.orange(),
+                    )
+                    await interaction.response.send_message(embed=embed, ephemeral=True)
+                    return
+                
+                # Grant hourly reward
+                await update_user_balance(
+                    session,
+                    user_id=user.id,
+                    amount=config.HOURLY_REWARD,
+                    reason=TransactionReason.HOURLY_REWARD,
+                )
+                await update_last_hourly(session, user.id)
+                
+                # Refresh user data
+                user = await get_user_by_discord_id(session, interaction.user.id)
+                
+                embed = discord.Embed(
+                    title="⏱️ Hourly Reward Claimed!",
+                    description=(
+                        f"You received {format_coins(config.HOURLY_REWARD)}!\n\n"
+                        f"**New Balance:** {format_coins(user.balance)}\n\n"
+                        f"Come back at the top of the hour for more!"
+                    ),
+                    color=discord.Color.blue(),
                 )
                 embed.set_thumbnail(url=interaction.user.display_avatar.url)
                 

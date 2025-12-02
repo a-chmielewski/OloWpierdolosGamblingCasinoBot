@@ -102,14 +102,6 @@ class Slots(commands.Cog):
                     )
                     return
                 
-                # Check balance
-                if user.balance < bet:
-                    await interaction.response.send_message(
-                        f"❌ Insufficient funds! You have {format_coins(user.balance)} but need {format_coins(bet)}.",
-                        ephemeral=True,
-                    )
-                    return
-                
                 # Spin the slots
                 symbols = self._spin_slots()
                 payout, result_text = self._calculate_payout(symbols, bet)

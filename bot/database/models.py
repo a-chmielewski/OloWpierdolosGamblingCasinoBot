@@ -26,6 +26,7 @@ class TransactionReason(enum.Enum):
     """Reasons for balance changes."""
     INITIAL_GRANT = "initial_grant"
     DAILY_REWARD = "daily_reward"
+    HOURLY_REWARD = "hourly_reward"
     DUEL_WIN = "duel_win"
     DUEL_LOSS = "duel_loss"
     SLOTS_WIN = "slots_win"
@@ -34,6 +35,10 @@ class TransactionReason(enum.Enum):
     ROULETTE_LOSS = "roulette_loss"
     GROUP_POT_WIN = "group_pot_win"
     GROUP_POT_LOSS = "group_pot_loss"
+    BLACKJACK_WIN = "blackjack_win"
+    BLACKJACK_LOSS = "blackjack_loss"
+    ANIMAL_RACE_WIN = "animal_race_win"
+    ANIMAL_RACE_LOSS = "animal_race_loss"
     ADMIN_ADJUSTMENT = "admin_adjustment"
     TRANSFER_SENT = "transfer_sent"
     TRANSFER_RECEIVED = "transfer_received"
@@ -45,6 +50,8 @@ class GameType(enum.Enum):
     SLOTS = "slots"
     ROULETTE = "roulette"
     GROUP_POT = "group_pot"
+    BLACKJACK = "blackjack"
+    ANIMAL_RACE = "animal_race"
 
 
 class GameStatus(enum.Enum):
@@ -67,6 +74,7 @@ class User(Base):
     lifetime_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     lifetime_lost: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     last_daily: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    last_hourly: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )

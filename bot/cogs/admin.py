@@ -20,14 +20,10 @@ logger = logging.getLogger(__name__)
 
 
 def is_admin():
-    """Check if user is bot owner or has administrator permission."""
+    """Check if user is the guild owner."""
     async def predicate(interaction: discord.Interaction) -> bool:
-        # Bot owner always has access
-        if interaction.user.id == interaction.client.application.owner.id:
-            return True
-        
-        # Check for administrator permission in guild
-        if interaction.guild and interaction.user.guild_permissions.administrator:
+        # Only guild owner has access
+        if interaction.guild and interaction.user.id == interaction.guild.owner_id:
             return True
         
         return False
@@ -80,25 +76,66 @@ class Admin(commands.Cog):
                 db_user = await get_user_by_discord_id(session, user.id)
                 new_balance = db_user.balance
         
-        action = "Added" if amount >= 0 else "Removed"
-        embed = discord.Embed(
-            title="🔧 Admin: Balance Modified",
-            description=(
-                f"**User:** {user.display_name}\n"
-                f"**Action:** {action} {format_coins(abs(amount))}\n"
-                f"**Old Balance:** {format_coins(old_balance)}\n"
-                f"**New Balance:** {format_coins(new_balance)}"
-            ),
-            color=discord.Color.orange(),
-        )
-        embed.set_footer(text=f"Action by {interaction.user.display_name}")
+        # Check if target is the server owner
+        is_owner = interaction.guild and user.id == interaction.guild.owner_id
         
-        logger.info(
-            f"ADMIN: {interaction.user} ({interaction.user.id}) modified "
-            f"{user} ({user.id}) balance by {amount:+d}"
-        )
-        
-        await interaction.response.send_message(embed=embed)
+        if is_owner:
+            # Silent/ephemeral message for server owner
+            action = "Added" if amount >= 0 else "Removed"
+            embed = discord.Embed(
+                title="🔧 Admin: Balance Modified",
+                description=(
+                    f"**User:** {user.display_name}\n"
+                    f"**Action:** {action} {format_coins(abs(amount))}\n"
+                    f"**Old Balance:** {format_coins(old_balance)}\n"
+                    f"**New Balance:** {format_coins(new_balance)}"
+                ),
+                color=discord.Color.orange(),
+            )
+            embed.set_footer(text=f"Action by {interaction.user.display_name}")
+            
+            logger.info(
+                f"ADMIN: {interaction.user} ({interaction.user.id}) modified "
+                f"{user} ({user.id}) balance by {amount:+d}"
+            )
+            
+            await interaction.response.send_message(embed=embed, ephemeral=True)
+        else:
+            # Public message in Polish for other players
+            if amount > 0:
+                message = f"Kasyno przyznało pożyczkę biedakowi {user.mention} w wysokości {format_coins(amount)}"
+                embed = discord.Embed(
+                    description=message,
+                    color=discord.Color.gold(),
+                )
+                
+                logger.info(
+                    f"ADMIN: {interaction.user} ({interaction.user.id}) gave "
+                    f"{user} ({user.id}) {amount} coins"
+                )
+                
+                await interaction.response.send_message(embed=embed)
+            else:
+                # For removing coins, keep it admin-only
+                action = "Removed"
+                embed = discord.Embed(
+                    title="🔧 Admin: Balance Modified",
+                    description=(
+                        f"**User:** {user.display_name}\n"
+                        f"**Action:** {action} {format_coins(abs(amount))}\n"
+                        f"**Old Balance:** {format_coins(old_balance)}\n"
+                        f"**New Balance:** {format_coins(new_balance)}"
+                    ),
+                    color=discord.Color.orange(),
+                )
+                embed.set_footer(text=f"Action by {interaction.user.display_name}")
+                
+                logger.info(
+                    f"ADMIN: {interaction.user} ({interaction.user.id}) modified "
+                    f"{user} ({user.id}) balance by {amount:+d}"
+                )
+                
+                await interaction.response.send_message(embed=embed, ephemeral=True)
     
     @app_commands.command(
         name="admin_reset_user",
@@ -219,7 +256,7 @@ class Admin(commands.Cog):
         """Handle admin command errors."""
         if isinstance(error, app_commands.CheckFailure):
             await interaction.response.send_message(
-                "❌ You don't have permission to use admin commands!",
+                "❌ Only the server owner can use admin commands!",
                 ephemeral=True,
             )
         else:

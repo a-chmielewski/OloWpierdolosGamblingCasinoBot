@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import datetime, timedelta
 from typing import Optional, List, Tuple
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, update, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -123,29 +124,100 @@ async def update_user_balance(
 
 async def update_last_daily(session: AsyncSession, user_id: int) -> None:
     """Update user's last daily claim timestamp."""
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
     await session.execute(
-        update(User).where(User.id == user_id).values(last_daily=datetime.utcnow())
+        update(User).where(User.id == user_id).values(last_daily=now)
+    )
+    await session.flush()
+
+
+async def update_last_hourly(session: AsyncSession, user_id: int) -> None:
+    """Update user's last hourly claim timestamp."""
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    await session.execute(
+        update(User).where(User.id == user_id).values(last_hourly=now)
     )
     await session.flush()
 
 
 async def can_claim_daily(session: AsyncSession, user_id: int) -> Tuple[bool, Optional[timedelta]]:
-    """Check if user can claim daily reward. Returns (can_claim, time_remaining)."""
+    """
+    Check if user can claim daily reward (resets at 3 AM Warsaw time).
+    Returns (can_claim, time_remaining).
+    """
     user = await get_user_by_id(session, user_id)
     if not user:
         raise ValueError(f"User with ID {user_id} not found")
     
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    
+    # If never claimed, can claim
     if user.last_daily is None:
         return True, None
     
-    cooldown = timedelta(hours=config.DAILY_COOLDOWN_HOURS)
-    next_claim = user.last_daily + cooldown
-    now = datetime.utcnow()
+    # Ensure last_daily is timezone-aware
+    last_daily = user.last_daily
+    if last_daily.tzinfo is None:
+        last_daily = last_daily.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+    else:
+        last_daily = last_daily.astimezone(tz)
     
-    if now >= next_claim:
+    # Find today's 3 AM reset time
+    today_reset = now.replace(hour=config.DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
+    
+    # If it's before 3 AM now, the current reset period started yesterday at 3 AM
+    if now < today_reset:
+        current_period_start = today_reset - timedelta(days=1)
+        next_reset = today_reset
+    else:
+        # It's after 3 AM now, so current period started today at 3 AM
+        current_period_start = today_reset
+        next_reset = today_reset + timedelta(days=1)
+    
+    # Can claim if last claim was before the current period started
+    if last_daily < current_period_start:
         return True, None
     
-    return False, next_claim - now
+    return False, next_reset - now
+
+
+async def can_claim_hourly(session: AsyncSession, user_id: int) -> Tuple[bool, Optional[timedelta]]:
+    """
+    Check if user can claim hourly reward (resets at the top of each hour).
+    Returns (can_claim, time_remaining).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    
+    # If never claimed, can claim
+    if user.last_hourly is None:
+        return True, None
+    
+    # Ensure last_hourly is timezone-aware
+    last_hourly = user.last_hourly
+    if last_hourly.tzinfo is None:
+        last_hourly = last_hourly.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+    else:
+        last_hourly = last_hourly.astimezone(tz)
+    
+    # Get the start of current hour
+    current_hour_start = now.replace(minute=0, second=0, microsecond=0)
+    
+    # Next reset is the start of next hour
+    next_reset = current_hour_start + timedelta(hours=1)
+    
+    # Can claim if last claim was before current hour started
+    if last_hourly < current_hour_start:
+        return True, None
+    
+    return False, next_reset - now
 
 
 async def reset_user_balance(
@@ -440,6 +512,50 @@ async def get_user_game_stats(
     )
     group_pot_won = group_pot_won_result.scalar() or 0
     
+    # Get blackjack stats
+    blackjack_played_result = await session.execute(
+        select(func.count(Transaction.id))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.reason.in_([
+                TransactionReason.BLACKJACK_WIN,
+                TransactionReason.BLACKJACK_LOSS,
+            ])
+        )
+    )
+    blackjack_played = blackjack_played_result.scalar() or 0
+    
+    blackjack_won_result = await session.execute(
+        select(func.count(Transaction.id))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.reason == TransactionReason.BLACKJACK_WIN,
+        )
+    )
+    blackjack_won = blackjack_won_result.scalar() or 0
+    
+    # Get animal race stats
+    animal_race_played_result = await session.execute(
+        select(func.count(Transaction.id))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.reason.in_([
+                TransactionReason.ANIMAL_RACE_WIN,
+                TransactionReason.ANIMAL_RACE_LOSS,
+            ])
+        )
+    )
+    animal_race_played = animal_race_played_result.scalar() or 0
+    
+    animal_race_won_result = await session.execute(
+        select(func.count(Transaction.id))
+        .where(
+            Transaction.user_id == user_id,
+            Transaction.reason == TransactionReason.ANIMAL_RACE_WIN,
+        )
+    )
+    animal_race_won = animal_race_won_result.scalar() or 0
+    
     # Get biggest win/loss from transactions
     biggest_win_result = await session.execute(
         select(func.max(Transaction.amount))
@@ -451,6 +567,8 @@ async def get_user_game_stats(
                 TransactionReason.SLOTS_WIN,
                 TransactionReason.ROULETTE_WIN,
                 TransactionReason.GROUP_POT_WIN,
+                TransactionReason.BLACKJACK_WIN,
+                TransactionReason.ANIMAL_RACE_WIN,
             ])
         )
     )
@@ -466,6 +584,8 @@ async def get_user_game_stats(
                 TransactionReason.SLOTS_LOSS,
                 TransactionReason.ROULETTE_LOSS,
                 TransactionReason.GROUP_POT_LOSS,
+                TransactionReason.BLACKJACK_LOSS,
+                TransactionReason.ANIMAL_RACE_LOSS,
             ])
         )
     )
@@ -484,6 +604,12 @@ async def get_user_game_stats(
         "group_pot_played": group_pot_played,
         "group_pot_won": group_pot_won,
         "group_pot_lost": group_pot_played - group_pot_won,
+        "blackjack_played": blackjack_played,
+        "blackjack_won": blackjack_won,
+        "blackjack_lost": blackjack_played - blackjack_won,
+        "animal_race_played": animal_race_played,
+        "animal_race_won": animal_race_won,
+        "animal_race_lost": animal_race_played - animal_race_won,
         "biggest_win": biggest_win,
         "biggest_loss": abs(biggest_loss),
     }

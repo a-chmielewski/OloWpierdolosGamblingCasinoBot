@@ -132,14 +132,6 @@ class Roulette(commands.Cog):
                     )
                     return
                 
-                # Check balance
-                if user.balance < bet:
-                    await interaction.response.send_message(
-                        f"❌ Insufficient funds! You have {format_coins(user.balance)} but need {format_coins(bet)}.",
-                        ephemeral=True,
-                    )
-                    return
-                
                 # Spin the roulette wheel
                 outcome_color, outcome_number = self._spin_roulette()
                 payout, is_win = self._calculate_payout(bet, user_choice, outcome_color)

@@ -19,8 +19,10 @@ class Config:
     
     # Economy constants
     STARTING_BALANCE: int = 10_000
-    DAILY_REWARD: int = 1_000
-    DAILY_COOLDOWN_HOURS: int = 24
+    DAILY_REWARD: int = 10_000
+    DAILY_RESET_HOUR: int = 3  # Daily resets at 3 AM Warsaw time
+    HOURLY_REWARD: int = 1_000
+    TIMEZONE: str = "Europe/Warsaw"
     
     # Game constants
     DUEL_TIMEOUT_SECONDS: int = 60  # Time to accept a duel challenge
@@ -42,6 +44,29 @@ class Config:
     ROULETTE_GREEN_CHANCE: int = 1        # Green (0) slot out of 37
     ROULETTE_PAYOUT_RED_BLACK: int = 2    # 2x payout for red/black
     ROULETTE_PAYOUT_GREEN: int = 14       # 14x payout for green
+    
+    # Blackjack constants
+    BLACKJACK_JOIN_TIMEOUT_SECONDS: int = 45    # Time window for players to join
+    BLACKJACK_ACTION_TIMEOUT_SECONDS: int = 45  # Time for each player action
+    BLACKJACK_CARD_DELAY_SECONDS: float = 1.0   # Dramatic delay between cards
+    BLACKJACK_NATURAL_PAYOUT: float = 1.5       # 3:2 payout for natural blackjack (2.5x total)
+    BLACKJACK_MIN_BET: int = 100                # Minimum bet amount
+    BLACKJACK_DEALER_STAND_VALUE: int = 17      # Dealer stands on 17+
+    
+    # Animal Racing constants
+    RACE_JOIN_TIMEOUT_SECONDS: int = 30         # Time window for players to join
+    RACE_TRACK_LENGTH: int = 100                # Total distance for race
+    RACE_UPDATE_INTERVAL: float = 0.8           # Seconds between progress updates
+    RACE_MIN_BET: int = 100                     # Minimum bet amount
+    RACE_PROGRESS_BAR_LENGTH: int = 10          # Visual progress bar length
+    # Racer configurations: name, emoji, min_speed, max_speed
+    RACE_RACERS: list[dict] = [
+        {"name": "Turtle", "emoji": "🐢", "min_speed": 1, "max_speed": 8},
+        {"name": "Hare", "emoji": "🐇", "min_speed": 1, "max_speed": 8},
+        {"name": "Chicken", "emoji": "🐓", "min_speed": 1, "max_speed": 8},
+        {"name": "Dino", "emoji": "🦖", "min_speed": 1, "max_speed": 8},
+        {"name": "Kubica", "emoji": ":kubica:", "min_speed": 1, "max_speed": 8},
+    ]
     
     @classmethod
     def validate(cls) -> None:

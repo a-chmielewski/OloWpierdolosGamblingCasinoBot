@@ -315,6 +315,190 @@ Created comprehensive README with:
 
 ---
 
+## Phase 9: Blackjack Game
+
+### 9.1 Database Models
+**Status:** Done
+
+Updated `bot/database/models.py`:
+- Added BLACKJACK to GameType enum
+- Added BLACKJACK_WIN and BLACKJACK_LOSS to TransactionReason enum
+- Reused existing GameSession and DuelParticipant models for game tracking
+
+### 9.2 Configuration
+**Status:** Done
+
+Updated `bot/config.py` with Blackjack constants:
+- BLACKJACK_JOIN_TIMEOUT_SECONDS: 45 (time for players to join multiplayer)
+- BLACKJACK_ACTION_TIMEOUT_SECONDS: 45 (time for each player action)
+- BLACKJACK_CARD_DELAY_SECONDS: 1.0 (dramatic delay between cards)
+- BLACKJACK_NATURAL_PAYOUT: 1.5 (3:2 payout for natural blackjack)
+- BLACKJACK_MIN_BET: 100 (minimum bet amount)
+- BLACKJACK_DEALER_STAND_VALUE: 17 (dealer stands on 17+)
+
+### 9.3 Card System Utilities
+**Status:** Done
+
+Created `bot/utils/card_utils.py` with:
+- Card class with rank, suit, and emoji representation
+- Deck class with shuffling and dealing (52-card standard deck)
+- Hand class with card tracking, value calculation, ace handling
+- Card emoji mappings for all 52 cards (A❤️, 2❤️, ..., K♠️)
+- Helper functions: format_hand_display(), calculate_winner()
+- Support for blackjack rules: bust detection, natural blackjack, soft aces
+
+### 9.4 Blackjack Cog
+**Status:** Done
+
+Created `bot/cogs/blackjack.py` with:
+- `/blackjack <bet>`: Start a blackjack game with bet validation
+- GameModeView: Buttons for Solo vs Multiplayer choice
+- JoinGameView: Button for other players to join multiplayer games
+- Full game flow:
+  1. Validate user registration and balance
+  2. Choose Solo or Multiplayer mode
+  3. For multiplayer: wait 45 seconds for players to join
+  4. Deal initial cards (2 to each player, 2 to dealer with one face-down)
+  5. Each player takes turn sequentially with emoji reactions:
+     - 👊 Hit - Draw another card
+     - ✋ Stand - Keep current hand
+     - 💰 Double Down - Double bet and take one final card (first action only)
+     - ✂️ Split - Placeholder for future feature
+  6. Dealer reveals hole card and plays (hits until 17+)
+  7. Calculate winners and payouts:
+     - Natural blackjack: 3:2 payout (2.5x bet)
+     - Regular win: 2:1 payout (2x bet)
+     - Push (tie): Return bet
+     - Loss: Lose bet
+  8. Update balances with transactions
+- Animated card dealing with delays for dramatic effect
+- Rich embeds with color coding (gold for blackjack, green for wins, red for losses)
+- Auto-stand on player timeout
+- Special handling for dealer blackjack
+
+### 9.5 Statistics
+**Status:** Done
+
+Updated `bot/database/crud.py`:
+- Added blackjack stats queries to `get_user_game_stats()`
+- Tracks blackjack_played, blackjack_won, blackjack_lost
+- Includes blackjack transactions in biggest win/loss calculations
+
+Updated `bot/cogs/stats.py`:
+- Added 🃏 Blackjack section to `/stats` command
+- Displays games played, won, lost, and win rate
+
+Updated `bot/main.py`:
+- Added "cogs.blackjack" to cog loading list
+
+### 9.6 Features Implemented
+- Solo and multiplayer modes (each player vs dealer independently)
+- All players in multiplayer game bet same amount
+- Emoji reaction-based controls for player actions
+- Full blackjack rules with proper ace handling
+- Natural blackjack bonus (3:2 payout)
+- Double Down feature
+- Visual card emojis for all 52 cards
+- Dramatic animated dealing and turn progression
+- Comprehensive statistics tracking
+- Integration with existing economy and database systems
+
+---
+
+## Phase 10: Animal Racing Game
+
+### 10.1 Database Models
+**Status:** Done
+
+Updated `bot/database/models.py`:
+- Added ANIMAL_RACE to GameType enum
+- Added ANIMAL_RACE_WIN and ANIMAL_RACE_LOSS to TransactionReason enum
+
+### 10.2 Configuration
+**Status:** Done
+
+Updated `bot/config.py` with animal racing constants:
+- RACE_JOIN_TIMEOUT_SECONDS: 30 (time window for players to join)
+- RACE_TRACK_LENGTH: 100 (total distance for race)
+- RACE_UPDATE_INTERVAL: 0.8 (seconds between progress updates)
+- RACE_MIN_BET: 100 (minimum bet amount)
+- RACE_PROGRESS_BAR_LENGTH: 10 (visual progress bar length)
+- RACE_RACERS: List of 5 racers with emoji, name, and speed ranges:
+  - Turtle 🐢: [1, 4] (slow but steady)
+  - Hare 🐇: [3, 8] (usually fast, inconsistent)
+  - Chicken 🐓: [2, 6] (middle ground)
+  - Dino 🦖: [2, 7] (unpredictable)
+  - Kubica :kubica: : [1, 8] (widest range for comedy)
+
+### 10.3 Race Utilities
+**Status:** Done
+
+Created `bot/utils/race_utils.py` with:
+- Racer class: Manages individual racer with name, emoji, speed range, position
+- RaceTrack class: Manages all racers, updates positions, checks for winner
+- format_progress_bar(): Creates visual progress bar using Unicode blocks (▓░)
+- format_race_display(): Formats racer display line with emoji, name, progress bar, percentage
+- Helper functions: get_racer_config_by_emoji(), get_racer_config_by_name()
+
+### 10.4 Animal Race Cog
+**Status:** Done
+
+Created `bot/cogs/animal_race.py` with:
+- `/race_start <bet>`: Start an animal racing game
+  - Validation: user registered, positive bet >= min, sufficient balance
+  - Create GameSession with ANIMAL_RACE type
+  - Display racer roster with emojis, names, and speed ranges
+  - Show JoinRaceView with buttons for each racer (30s timeout)
+  - Store player racer choices in game data JSON
+- JoinRaceView: Discord UI with 5 buttons (one per racer)
+  - Validates user registration, balance, not already joined
+  - Adds participant with chosen racer stored in game data
+  - Updates message showing who joined
+  - Allows multiple players to bet on same racer
+- _run_race(): Execute the race with animation
+  - Initialize RaceTrack with 5 racers
+  - Loop until winner reaches track length (100):
+    - Update all racer positions (random within speed range)
+    - Send embed with progress bars for all 5 racers
+    - Highlight racers that players bet on with 💰
+    - Sleep for RACE_UPDATE_INTERVAL (0.8s)
+  - Determine winner and calculate pot (total bets from all players)
+  - Distribute winnings to players who bet on winner
+  - Split pot equally if multiple players bet on same winner
+  - Deduct bet from losers, add profit to winners
+  - Create transactions with ANIMAL_RACE_WIN/LOSS reasons
+  - Show final results with dramatic embed showing standings and payouts
+
+### 10.5 Statistics
+**Status:** Done
+
+Updated `bot/database/crud.py`:
+- Added animal race stats queries to `get_user_game_stats()`
+- Tracks animal_race_played, animal_race_won, animal_race_lost
+- Includes animal race transactions in biggest win/loss calculations
+
+Updated `bot/cogs/stats.py`:
+- Added 🏁 Animal Racing section to `/stats` command
+- Displays games played, won, lost, and win rate
+
+Updated `bot/main.py`:
+- Added "cogs.animal_race" to cog loading list
+
+### 10.6 Features Implemented
+- Multi-player racing game (1-5 players)
+- Winner-takes-all pot system with pot splitting for multiple winners
+- 5 unique racers with different speed characteristics
+- Custom emoji support (:kubica:) integrated into racer list
+- Animated race with real-time progress bars
+- Visual progress indicators using Unicode blocks (▓░)
+- Random speed within configured ranges creates unpredictable outcomes
+- Hilarious scenarios where slow racers can beat fast ones
+- 30-second join window with button-based racer selection
+- Full statistics tracking and display
+- Integration with existing economy and database systems
+
+---
+
 ## Summary
 
 All phases completed. The bot is ready to run with:

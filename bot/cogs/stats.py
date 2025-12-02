@@ -74,6 +74,12 @@ class Stats(commands.Cog):
         total_group_pot = game_stats["group_pot_played"]
         group_pot_winrate = (game_stats["group_pot_won"] / total_group_pot * 100) if total_group_pot > 0 else 0
         
+        total_blackjack = game_stats["blackjack_played"]
+        blackjack_winrate = (game_stats["blackjack_won"] / total_blackjack * 100) if total_blackjack > 0 else 0
+        
+        total_animal_race = game_stats["animal_race_played"]
+        animal_race_winrate = (game_stats["animal_race_won"] / total_animal_race * 100) if total_animal_race > 0 else 0
+        
         embed = discord.Embed(
             title=f"📊 {target.display_name}'s Statistics",
             color=net_color,
@@ -152,6 +158,32 @@ class Stats(commands.Cog):
             ),
             inline=True,
         )
+        
+        # Blackjack section
+        embed.add_field(
+            name="🃏 Blackjack",
+            value=(
+                f"**Played:** {game_stats['blackjack_played']}\n"
+                f"**Won:** {game_stats['blackjack_won']}\n"
+                f"**Lost:** {game_stats['blackjack_lost']}\n"
+                f"**Win Rate:** {blackjack_winrate:.1f}%"
+            ),
+            inline=True,
+        )
+        
+        # Animal Racing section
+        embed.add_field(
+            name="🏁 Animal Racing",
+            value=(
+                f"**Played:** {game_stats['animal_race_played']}\n"
+                f"**Won:** {game_stats['animal_race_won']}\n"
+                f"**Lost:** {game_stats['animal_race_lost']}\n"
+                f"**Win Rate:** {animal_race_winrate:.1f}%"
+            ),
+            inline=True,
+        )
+        
+        embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
         
         # Records section
         biggest_win = game_stats["biggest_win"]

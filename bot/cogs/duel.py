@@ -137,21 +137,6 @@ class Duel(commands.Cog):
                 )
                 return
             
-            # Check balances
-            if challenger.balance < amount:
-                await interaction.response.send_message(
-                    f"❌ Insufficient funds! You have {format_coins(challenger.balance)} but need {format_coins(amount)}.",
-                    ephemeral=True,
-                )
-                return
-            
-            if opponent_user.balance < amount:
-                await interaction.response.send_message(
-                    f"❌ {opponent.display_name} doesn't have enough coins! They have {format_coins(opponent_user.balance)}.",
-                    ephemeral=True,
-                )
-                return
-            
             # Check for existing active games
             challenger_game = await get_active_game_for_user(session, challenger.id)
             if challenger_game:
@@ -215,7 +200,11 @@ class Duel(commands.Cog):
             amount=amount,
         )
         
-        await interaction.response.send_message(embed=embed, view=view)
+        await interaction.response.send_message(
+            content=f"{opponent.mention}",
+            embed=embed,
+            view=view
+        )
         message = await interaction.original_response()
         
         # Store message ID
@@ -261,19 +250,9 @@ class Duel(commands.Cog):
     ) -> None:
         """Execute the deathroll duel sequence."""
         async with get_session() as session:
-            # Verify balances again (in case they changed)
+            # Get user data
             challenger_user = await get_user_by_discord_id(session, challenger.id)
             opponent_user = await get_user_by_discord_id(session, opponent.id)
-            
-            if challenger_user.balance < amount or opponent_user.balance < amount:
-                embed = discord.Embed(
-                    title="❌ Duel Cancelled",
-                    description="One of the players no longer has sufficient funds!",
-                    color=discord.Color.red(),
-                )
-                await channel.send(embed=embed)
-                await update_game_status(session, game_id, GameStatus.CANCELLED)
-                return
             
             # Mark game as active
             await update_game_status(session, game_id, GameStatus.ACTIVE)

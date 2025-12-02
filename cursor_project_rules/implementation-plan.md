@@ -499,6 +499,83 @@ Updated `bot/main.py`:
 
 ---
 
+## Phase 11: Daily/Hourly Streak System
+
+### 11.1 Database Models
+**Status:** Done
+
+Updated `bot/database/models.py`:
+- Added `daily_streak`, `daily_streak_best`, `hourly_streak`, `hourly_streak_best` fields to User model
+- Added `DAILY_STREAK_INSURANCE` and `HOURLY_STREAK_INSURANCE` to TransactionReason enum
+
+### 11.2 Configuration
+**Status:** Done
+
+Updated `bot/config.py` with streak constants:
+- DAILY_STREAK_BONUS_PER_DAY: 0.10 (+10% per consecutive day)
+- DAILY_STREAK_DAY7_REWARD: 20,000 (capped reward at day 7+)
+- DAILY_STREAK_MAX_BONUS_DAY: 7 (day at which bonus caps)
+- DAILY_STREAK_INSURANCE_COST: 25,000 (cost to recover broken daily streak)
+- HOURLY_STREAK_BONUS_PER_HOUR: 0.10 (+10% per consecutive hour)
+- HOURLY_STREAK_MAX_REWARD: 1,500 (capped reward at hour 5+)
+- HOURLY_STREAK_MAX_BONUS_HOUR: 5 (hour at which bonus caps)
+- HOURLY_STREAK_MISSED_THRESHOLD: 2 (missed hourly windows to reset streak)
+- HOURLY_STREAK_INSURANCE_COST: 2,500 (cost to recover broken hourly streak)
+
+### 11.3 CRUD Operations
+**Status:** Done
+
+Added streak functions to `bot/database/crud.py`:
+- `calculate_daily_reward()`: Computes reward based on streak (Day 1: 10k, Days 2-6: +10%, Day 7+: 20k)
+- `calculate_hourly_reward()`: Computes reward based on streak (Hour 1: 1k, Hours 2-4: +10%, Hour 5+: 1.5k)
+- `check_daily_streak_status()`: Determines if daily streak is broken and missed periods
+- `check_hourly_streak_status()`: Determines if hourly streak is broken (2+ missed hours)
+- `update_daily_streak()`: Updates streak on claim, tracks personal best
+- `update_hourly_streak()`: Updates streak on claim, tracks personal best
+- `purchase_daily_streak_insurance()`: Deducts 25k coins to recover broken daily streak
+- `purchase_hourly_streak_insurance()`: Deducts 2.5k coins to recover broken hourly streak
+- `get_user_streak_info()`: Returns comprehensive streak status for display
+
+### 11.4 Economy Cog Updates
+**Status:** Done
+
+Updated `bot/cogs/economy.py` with enhanced commands:
+- `/daily`: Now shows streak info with fire emojis (🔥), bonus percentage, personal best notifications
+  - Day 7 celebration with special message
+  - Broken streak warning with previous streak display
+  - Next day reward preview
+- `/hourly`: Now shows streak info with timer emojis (⏱️), bonus percentage, personal best notifications
+  - Warning about streak reset threshold
+  - Next hour reward preview
+- `/streak`: New command to view detailed streak status for both daily and hourly
+  - Shows current/best streaks, status (active/broken), next reward amounts
+  - Insurance cost display for broken streaks
+- `/streak_save <daily|hourly>`: New command to purchase streak insurance
+  - Validates streak is actually broken
+  - Checks sufficient balance
+  - Deducts cost and restores streak continuity
+
+### 11.5 Database Migration
+**Status:** Done
+
+Created `bot/migrations/add_streak_columns.py`:
+- Adds daily_streak, daily_streak_best, hourly_streak, hourly_streak_best columns
+- Safe to run multiple times (skips existing columns)
+- Sets default values to 0 for all existing users
+
+### 11.6 Features Implemented
+- Progressive daily rewards: Day 1 (10k), Days 2-6 (+10% each), Day 7+ (20k cap)
+- Progressive hourly rewards: Hour 1 (1k), Hours 2-4 (+10% each), Hour 5+ (1.5k cap)
+- Daily streak resets if more than one daily period is missed
+- Hourly streak resets after 2 consecutive missed hourly windows
+- Personal best tracking for both streaks
+- Streak insurance to recover broken streaks (25k daily, 2.5k hourly)
+- Visual flair with scaling fire/timer emojis based on streak length
+- Broken streak warnings with insurance option display
+- Economy-balanced caps prevent infinite inflation
+
+---
+
 ## Summary
 
 All phases completed. The bot is ready to run with:

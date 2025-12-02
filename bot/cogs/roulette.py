@@ -13,9 +13,12 @@ from database.database import get_session
 from database.crud import (
     get_user_by_discord_id,
     update_user_balance,
+    add_user_xp,
 )
 from database.models import TransactionReason
 from utils.helpers import format_coins, get_user_lock
+from utils.bet_validator import validate_bet
+from utils.tier_system import calculate_xp_reward, get_level_tier, format_tier_badge
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +135,15 @@ class Roulette(commands.Cog):
                     )
                     return
                 
+                # Validate bet amount against progressive limits
+                is_valid, error_msg = validate_bet(user, bet)
+                if not is_valid:
+                    await interaction.response.send_message(
+                        error_msg,
+                        ephemeral=True,
+                    )
+                    return
+                
                 # Spin the roulette wheel
                 outcome_color, outcome_number = self._spin_roulette()
                 payout, is_win = self._calculate_payout(bet, user_choice, outcome_color)
@@ -145,9 +157,16 @@ class Roulette(commands.Cog):
                     reason=reason,
                 )
                 
-                # Get updated balance
-                user = await get_user_by_discord_id(session, interaction.user.id)
+                # Award XP for wagering
+                xp_earned = calculate_xp_reward(bet)
+                user, tier_up = await add_user_xp(session, user.id, xp_earned)
                 new_balance = user.balance
+                
+                # Store tier-up info for notification
+                tier_up_info = None
+                if tier_up:
+                    new_tier = get_level_tier(user.experience_points)
+                    tier_up_info = new_tier
         
         # === ANIMATED ROULETTE WHEEL ===
         
@@ -250,10 +269,24 @@ class Roulette(commands.Cog):
             inline=False,
         )
         
-        final_embed.set_footer(text=f"Bet: {format_coins(bet)} | Odds: {user_choice.capitalize()} pays {config.ROULETTE_PAYOUT_GREEN if user_choice == RouletteChoice.GREEN else config.ROULETTE_PAYOUT_RED_BLACK}x")
+        final_embed.set_footer(text=f"Bet: {format_coins(bet)} | +{xp_earned} XP | Odds: {user_choice.capitalize()} pays {config.ROULETTE_PAYOUT_GREEN if user_choice == RouletteChoice.GREEN else config.ROULETTE_PAYOUT_RED_BLACK}x")
         final_embed.set_thumbnail(url=interaction.user.display_avatar.url)
         
         await message.edit(embed=final_embed)
+        
+        # Send tier-up notification if occurred
+        if tier_up_info:
+            tier_embed = discord.Embed(
+                title="🎉 TIER UP!",
+                description=(
+                    f"Congratulations {interaction.user.mention}!\n\n"
+                    f"You've advanced to **{format_tier_badge(tier_up_info)}**!\n\n"
+                    f"**New Max Bet:** {format_coins(tier_up_info.max_bet)}"
+                ),
+                color=discord.Color.gold(),
+            )
+            tier_embed.set_thumbnail(url=interaction.user.display_avatar.url)
+            await interaction.channel.send(embed=tier_embed)
 
 
 async def setup(bot: commands.Bot) -> None:

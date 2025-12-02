@@ -27,6 +27,8 @@ class TransactionReason(enum.Enum):
     INITIAL_GRANT = "initial_grant"
     DAILY_REWARD = "daily_reward"
     HOURLY_REWARD = "hourly_reward"
+    DAILY_STREAK_INSURANCE = "daily_streak_insurance"
+    HOURLY_STREAK_INSURANCE = "hourly_streak_insurance"
     DUEL_WIN = "duel_win"
     DUEL_LOSS = "duel_loss"
     SLOTS_WIN = "slots_win"
@@ -73,8 +75,14 @@ class User(Base):
     balance: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     lifetime_earned: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     lifetime_lost: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    experience_points: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    level: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     last_daily: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     last_hourly: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    daily_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    daily_streak_best: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    hourly_streak: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    hourly_streak_best: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )

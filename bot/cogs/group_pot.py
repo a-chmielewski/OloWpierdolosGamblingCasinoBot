@@ -22,9 +22,12 @@ from database.crud import (
     add_duel_participant,
     get_duel_participants,
     update_participant_result,
+    add_user_xp,
 )
 from database.models import GameType, GameStatus, TransactionReason
 from utils.helpers import format_coins, get_user_lock
+from utils.bet_validator import validate_bet
+from utils.tier_system import calculate_xp_reward, get_level_tier, format_tier_badge
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,15 @@ class GroupPotView(View):
                 
                 game_data = json.loads(game.data) if game.data else {}
                 amount = game_data.get("amount", 0)
+                
+                # Validate bet amount against progressive limits
+                is_valid, error_msg = validate_bet(user, amount)
+                if not is_valid:
+                    await interaction.response.send_message(
+                        error_msg,
+                        ephemeral=True,
+                    )
+                    return
                 
                 # Check if already joined
                 participants = await get_duel_participants(session, game.id)
@@ -305,6 +317,15 @@ class GroupPot(commands.Cog):
                 if not creator:
                     await interaction.response.send_message(
                         "❌ You are not registered! Use `/register` first.",
+                        ephemeral=True,
+                    )
+                    return
+                
+                # Validate bet amount against progressive limits
+                is_valid, error_msg = validate_bet(creator, amount)
+                if not is_valid:
+                    await interaction.response.send_message(
+                        error_msg,
                         ephemeral=True,
                     )
                     return
@@ -593,6 +614,10 @@ class GroupPot(commands.Cog):
             # Calculate transfer amount
             transfer_amount = winner["roll"] - loser["roll"]
             
+            # Calculate XP reward
+            xp_earned = calculate_xp_reward(amount)
+            tier_ups = []
+            
             # Transfer money from loser to winner
             if transfer_amount > 0:
                 async with get_user_lock(winner["player"].id):
@@ -623,6 +648,13 @@ class GroupPot(commands.Cog):
                         )
                         
                         await session.commit()
+            
+            # Award XP to all participants
+            for roll_data in rolls:
+                user, tier_up = await add_user_xp(session, roll_data["player"].id, xp_earned)
+                if tier_up:
+                    tier_info = get_level_tier(user.experience_points)
+                    tier_ups.append((roll_data["discord_user"], tier_info))
             
             # Complete the game
             await update_game_status(session, game.id, GameStatus.COMPLETED)
@@ -667,9 +699,23 @@ class GroupPot(commands.Cog):
             inline=False,
         )
         
-        final_embed.set_footer(text=f"Game ID: {game.id}")
+        final_embed.set_footer(text=f"Game ID: {game.id} | +{xp_earned} XP earned per player")
         
         await message.edit(embed=final_embed)
+        
+        # Send tier-up notifications
+        for member, tier_info in tier_ups:
+            tier_embed = discord.Embed(
+                title="🎉 TIER UP!",
+                description=(
+                    f"Congratulations {member.mention}!\n\n"
+                    f"You've advanced to **{format_tier_badge(tier_info)}**!\n\n"
+                    f"**New Max Bet:** {format_coins(tier_info.max_bet)}"
+                ),
+                color=discord.Color.gold(),
+            )
+            tier_embed.set_thumbnail(url=member.display_avatar.url)
+            await channel.send(embed=tier_embed)
         
         logger.info(f"Group pot game {game.id} completed - Winner: {winner['player'].id}, Transfer: {transfer_amount}")
 

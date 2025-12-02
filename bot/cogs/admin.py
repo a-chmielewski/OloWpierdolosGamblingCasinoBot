@@ -247,14 +247,18 @@ class Admin(commands.Cog):
     
     @app_commands.command(
         name="reset_casino",
-        description="[OWNER ONLY] Reset ALL registered users to 50k balance"
+        description="[OWNER ONLY] Reset ALL stats: balance, XP, levels, and optionally game history"
+    )
+    @app_commands.describe(
+        clear_history="Also delete all game and transaction history (default: False)"
     )
     @is_admin()
     async def reset_casino(
         self,
         interaction: discord.Interaction,
+        clear_history: bool = False,
     ) -> None:
-        """Reset all registered users to 50k balance. Guild owner only."""
+        """Reset all registered users to starting stats. Guild owner only."""
         # Double check guild owner
         if not interaction.guild or interaction.user.id != interaction.guild.owner_id:
             await interaction.response.send_message(
@@ -269,6 +273,8 @@ class Admin(commands.Cog):
         async with get_session() as session:
             # Get all users from database
             from sqlalchemy import select
+            from database.models import Transaction, GameSession, DuelParticipant
+            
             result = await session.execute(select(User))
             all_users = result.scalars().all()
             
@@ -279,32 +285,98 @@ class Admin(commands.Cog):
                 )
                 return
             
-            # Reset all users to 50k
+            # Reset all users to starting values
             reset_count = 0
             for db_user in all_users:
                 old_balance = db_user.balance
-                await reset_user_balance(session, db_user.id, 50_000)
+                
+                # Reset balance
+                db_user.balance = config.STARTING_BALANCE
+                db_user.lifetime_earned = config.STARTING_BALANCE
+                db_user.lifetime_lost = 0
+                
+                # Reset progression stats
+                db_user.experience_points = 0
+                db_user.level = 1
+                
+                # Reset daily/hourly claims
+                db_user.last_daily = None
+                db_user.last_hourly = None
+                
                 reset_count += 1
                 logger.info(
                     f"CASINO RESET: User {db_user.name} ({db_user.discord_id}) "
-                    f"reset from {old_balance} to 50,000"
+                    f"reset from {old_balance} to {config.STARTING_BALANCE}, XP/Level reset"
                 )
+            
+            await session.flush()
+            
+            # Optionally clear history
+            deleted_transactions = 0
+            deleted_games = 0
+            deleted_participants = 0
+            
+            if clear_history:
+                # Delete all transactions
+                result = await session.execute(select(Transaction))
+                transactions = result.scalars().all()
+                for transaction in transactions:
+                    await session.delete(transaction)
+                    deleted_transactions += 1
+                
+                # Delete all duel participants
+                result = await session.execute(select(DuelParticipant))
+                participants = result.scalars().all()
+                for participant in participants:
+                    await session.delete(participant)
+                    deleted_participants += 1
+                
+                # Delete all game sessions
+                result = await session.execute(select(GameSession))
+                games = result.scalars().all()
+                for game in games:
+                    await session.delete(game)
+                    deleted_games += 1
+                
+                await session.flush()
+            
+            await session.commit()
         
         # Send confirmation
         embed = discord.Embed(
-            title="🎰 Casino Reset Complete!",
+            title="🔧 Casino Reset Complete",
             description=(
-                f"**All users have been reset to {format_coins(50_000)}**\n\n"
+                f"All registered users have been reset!\n\n"
                 f"**Users Reset:** {reset_count}\n"
-                f"**New Balance:** {format_coins(50_000)}"
+                f"**Balance Reset:** {format_coins(config.STARTING_BALANCE)}\n"
+                f"**XP/Level Reset:** 0 XP / Level 1\n"
+                f"**Lifetime Stats:** Cleared"
             ),
             color=discord.Color.gold(),
         )
+        
+        if clear_history:
+            embed.add_field(
+                name="📊 History Cleared",
+                value=(
+                    f"**Transactions Deleted:** {deleted_transactions}\n"
+                    f"**Game Sessions Deleted:** {deleted_games}\n"
+                    f"**Participants Deleted:** {deleted_participants}"
+                ),
+                inline=False,
+            )
+        else:
+            embed.add_field(
+                name="📊 History",
+                value="Game and transaction history preserved",
+                inline=False,
+            )
+        
         embed.set_footer(text=f"Reset by {interaction.user.display_name}")
         
         logger.warning(
             f"CASINO RESET: {interaction.user} ({interaction.user.id}) "
-            f"reset all {reset_count} users to 50,000 balance"
+            f"reset all {reset_count} users (clear_history={clear_history})"
         )
         
         # Send to admin (ephemeral)
@@ -316,8 +388,10 @@ class Admin(commands.Cog):
                 title="🎰 CASINO RESET! 🎰",
                 description=(
                     f"The casino has been reset by the owner!\n\n"
-                    f"🪙 **All players now have {format_coins(50_000)}**\n\n"
-                    f"Good luck gambling! 🎲"
+                    f"🪙 **Balance:** {format_coins(config.STARTING_BALANCE)}\n"
+                    f"⭐ **Level:** 1 (0 XP)\n"
+                    f"🎯 **Tier:** 🎲 Newcomer\n\n"
+                    f"Fresh start for everyone! Good luck gambling! 🎲"
                 ),
                 color=discord.Color.gold(),
             )

@@ -25,9 +25,12 @@ from database.crud import (
     add_duel_participant,
     get_duel_participants,
     update_participant_result,
+    add_user_xp,
 )
 from database.models import GameType, GameStatus, TransactionReason
 from utils.helpers import format_coins, get_user_lock
+from utils.bet_validator import validate_bet
+from utils.tier_system import calculate_xp_reward, get_level_tier, format_tier_badge
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +136,24 @@ class Duel(commands.Cog):
             if not opponent_user:
                 await interaction.response.send_message(
                     f"❌ {opponent.display_name} is not registered! They need to use `/register` first.",
+                    ephemeral=True,
+                )
+                return
+            
+            # Validate bet amount for challenger
+            is_valid, error_msg = validate_bet(challenger, amount)
+            if not is_valid:
+                await interaction.response.send_message(
+                    error_msg,
+                    ephemeral=True,
+                )
+                return
+            
+            # Validate bet amount for opponent
+            is_valid_opp, error_msg_opp = validate_bet(opponent_user, amount)
+            if not is_valid_opp:
+                await interaction.response.send_message(
+                    f"❌ {opponent.display_name} cannot accept this bet:\n{error_msg_opp}",
                     ephemeral=True,
                 )
                 return
@@ -377,6 +398,15 @@ class Duel(commands.Cog):
                 game_id=game_id,
             )
             
+            # Award XP for wagering
+            xp_earned = calculate_xp_reward(amount)
+            winner_user, winner_tier_up = await add_user_xp(session, winner_user.id, xp_earned)
+            loser_user, loser_tier_up = await add_user_xp(session, loser_user.id, xp_earned)
+            
+            # Store tier-up info
+            winner_tier_info = get_level_tier(winner_user.experience_points) if winner_tier_up else None
+            loser_tier_info = get_level_tier(loser_user.experience_points) if loser_tier_up else None
+            
             # Update participant results
             await update_participant_result(
                 session,
@@ -421,8 +451,36 @@ class Duel(commands.Cog):
             rolls_text = f"... ({len(rolls_log) - 10} more rolls)\n" + rolls_text
         
         embed.add_field(name="Roll History", value=rolls_text, inline=False)
+        embed.set_footer(text=f"+{xp_earned} XP earned by both players")
         
         await channel.send(embed=embed)
+        
+        # Send tier-up notifications
+        if winner_tier_info:
+            tier_embed = discord.Embed(
+                title="🎉 TIER UP!",
+                description=(
+                    f"Congratulations {winner_member.mention}!\n\n"
+                    f"You've advanced to **{format_tier_badge(winner_tier_info)}**!\n\n"
+                    f"**New Max Bet:** {format_coins(winner_tier_info.max_bet)}"
+                ),
+                color=discord.Color.gold(),
+            )
+            tier_embed.set_thumbnail(url=winner_member.display_avatar.url)
+            await channel.send(embed=tier_embed)
+        
+        if loser_tier_info:
+            tier_embed = discord.Embed(
+                title="🎉 TIER UP!",
+                description=(
+                    f"Congratulations {loser_member.mention}!\n\n"
+                    f"You've advanced to **{format_tier_badge(loser_tier_info)}**!\n\n"
+                    f"**New Max Bet:** {format_coins(loser_tier_info.max_bet)}"
+                ),
+                color=discord.Color.gold(),
+            )
+            tier_embed.set_thumbnail(url=loser_member.display_avatar.url)
+            await channel.send(embed=tier_embed)
     
     @app_commands.command(
         name="duel_cancel",

@@ -24,6 +24,19 @@ class Config:
     HOURLY_REWARD: int = 1_000
     TIMEZONE: str = "Europe/Warsaw"
     
+    # Daily Streak constants
+    DAILY_STREAK_BONUS_PER_DAY: float = 0.10  # +10% per day (days 2-6)
+    DAILY_STREAK_DAY7_REWARD: int = 20_000    # Fixed reward at day 7+
+    DAILY_STREAK_MAX_BONUS_DAY: int = 7       # Day at which bonus caps
+    DAILY_STREAK_INSURANCE_COST: int = 25_000 # Cost to recover broken daily streak
+    
+    # Hourly Streak constants
+    HOURLY_STREAK_BONUS_PER_HOUR: float = 0.10  # +10% per consecutive hour (hours 2-4)
+    HOURLY_STREAK_MAX_REWARD: int = 1_500       # Fixed reward at hour 5+
+    HOURLY_STREAK_MAX_BONUS_HOUR: int = 5       # Hour at which bonus caps
+    HOURLY_STREAK_MISSED_THRESHOLD: int = 2    # Number of missed hourly windows to reset streak
+    HOURLY_STREAK_INSURANCE_COST: int = 2_500  # Cost to recover broken hourly streak
+    
     # Game constants
     DUEL_TIMEOUT_SECONDS: int = 60  # Time to accept a duel challenge
     ROLL_DELAY_SECONDS: float = 1.5  # Delay between rolls for drama
@@ -67,6 +80,10 @@ class Config:
         {"name": "Dino", "emoji": "🦖", "min_speed": 2, "max_speed": 7},  # Unpredictable
         {"name": "Kubica", "emoji": ":kubica:", "min_speed": 1, "max_speed": 8},  # Wildcard - widest range
     ]
+    
+    # Progressive Bet Limits (Tier System)
+    XP_DIVISOR: int = 10                        # Wager amount / 10 = XP gained
+    ENABLE_BET_LIMITS: bool = True              # Enable progressive bet limits
     
     @classmethod
     def validate(cls) -> None:

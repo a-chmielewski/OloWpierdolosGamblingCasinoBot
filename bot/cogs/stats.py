@@ -15,6 +15,7 @@ from database.crud import (
     get_user_game_stats,
 )
 from utils.helpers import format_coins
+from utils.tier_system import get_level_tier, format_tier_badge
 
 logger = logging.getLogger(__name__)
 
@@ -80,6 +81,9 @@ class Stats(commands.Cog):
         total_animal_race = game_stats["animal_race_played"]
         animal_race_winrate = (game_stats["animal_race_won"] / total_animal_race * 100) if total_animal_race > 0 else 0
         
+        # Get tier information
+        level_tier = get_level_tier(db_user.experience_points)
+        
         embed = discord.Embed(
             title=f"📊 {target.display_name}'s Statistics",
             color=net_color,
@@ -107,7 +111,16 @@ class Stats(commands.Cog):
             inline=True,
         )
         
-        embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
+        # RPG/Progression section
+        embed.add_field(
+            name="⭐ Progression",
+            value=(
+                f"**Tier:** {format_tier_badge(level_tier)}\n"
+                f"**Level:** {db_user.level}\n"
+                f"**Experience:** {db_user.experience_points:,} XP"
+            ),
+            inline=True,
+        )
         
         # Duel section
         embed.add_field(
@@ -236,12 +249,16 @@ class Stats(commands.Cog):
             net_profit = user.lifetime_earned - user.lifetime_lost
             net_symbol = "+" if net_profit >= 0 else ""
             
+            # Get tier badge
+            tier = get_level_tier(user.experience_points)
+            tier_badge = format_tier_badge(tier)
+            
             # Try to get Discord user for display name
             discord_user = interaction.guild.get_member(user.discord_id)
             display_name = discord_user.display_name if discord_user else user.name
             
             leaderboard_text.append(
-                f"{rank_display} **{display_name}**\n"
+                f"{rank_display} **{display_name}** {tier_badge}\n"
                 f"   └ {format_coins(user.balance)} (Net: {net_symbol}{net_profit:,})"
             )
         

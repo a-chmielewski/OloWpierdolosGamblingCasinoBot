@@ -142,6 +142,340 @@ async def update_last_hourly(session: AsyncSession, user_id: int) -> None:
     await session.flush()
 
 
+# ============================================================================
+# Streak System Functions
+# ============================================================================
+
+def calculate_daily_reward(streak: int) -> int:
+    """
+    Calculate daily reward based on streak.
+    Day 1: base, Days 2-6: +10% per day, Day 7+: capped at 20,000.
+    """
+    if streak <= 0:
+        streak = 1
+    
+    if streak >= config.DAILY_STREAK_MAX_BONUS_DAY:
+        return config.DAILY_STREAK_DAY7_REWARD
+    
+    # Calculate bonus: +10% per day after day 1
+    bonus_multiplier = 1.0 + (config.DAILY_STREAK_BONUS_PER_DAY * (streak - 1))
+    return int(config.DAILY_REWARD * bonus_multiplier)
+
+
+def calculate_hourly_reward(streak: int) -> int:
+    """
+    Calculate hourly reward based on streak.
+    Hour 1: base, Hours 2-4: +10% per hour, Hour 5+: capped at 1,500.
+    """
+    if streak <= 0:
+        streak = 1
+    
+    if streak >= config.HOURLY_STREAK_MAX_BONUS_HOUR:
+        return config.HOURLY_STREAK_MAX_REWARD
+    
+    # Calculate bonus: +10% per hour after hour 1
+    bonus_multiplier = 1.0 + (config.HOURLY_STREAK_BONUS_PER_HOUR * (streak - 1))
+    return int(config.HOURLY_REWARD * bonus_multiplier)
+
+
+async def check_daily_streak_status(
+    session: AsyncSession, user_id: int
+) -> Tuple[bool, int]:
+    """
+    Check if user's daily streak is broken (missed more than one reset period).
+    Returns (is_broken, missed_periods).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    # If never claimed, streak is not broken (starts fresh)
+    if user.last_daily is None:
+        return False, 0
+    
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    
+    # Ensure last_daily is timezone-aware
+    last_daily = user.last_daily
+    if last_daily.tzinfo is None:
+        last_daily = last_daily.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+    else:
+        last_daily = last_daily.astimezone(tz)
+    
+    # Find today's reset time
+    today_reset = now.replace(hour=config.DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
+    
+    # Determine current period start
+    if now < today_reset:
+        current_period_start = today_reset - timedelta(days=1)
+    else:
+        current_period_start = today_reset
+    
+    # Count how many periods were missed
+    # If last claim was in current period, no periods missed
+    if last_daily >= current_period_start:
+        return False, 0
+    
+    # Calculate days since last claim's period
+    last_claim_period_start = last_daily.replace(
+        hour=config.DAILY_RESET_HOUR, minute=0, second=0, microsecond=0
+    )
+    if last_daily < last_claim_period_start:
+        last_claim_period_start -= timedelta(days=1)
+    
+    days_diff = (current_period_start - last_claim_period_start).days
+    
+    # Streak breaks if more than 1 period was missed (i.e., days_diff > 1)
+    is_broken = days_diff > 1
+    missed_periods = max(0, days_diff - 1)
+    
+    return is_broken, missed_periods
+
+
+async def check_hourly_streak_status(
+    session: AsyncSession, user_id: int
+) -> Tuple[bool, int]:
+    """
+    Check if user's hourly streak is broken (missed 2+ consecutive hourly windows).
+    Returns (is_broken, missed_hours).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    # If never claimed, streak is not broken (starts fresh)
+    if user.last_hourly is None:
+        return False, 0
+    
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    
+    # Ensure last_hourly is timezone-aware
+    last_hourly = user.last_hourly
+    if last_hourly.tzinfo is None:
+        last_hourly = last_hourly.replace(tzinfo=ZoneInfo("UTC")).astimezone(tz)
+    else:
+        last_hourly = last_hourly.astimezone(tz)
+    
+    # Get the start of current hour
+    current_hour_start = now.replace(minute=0, second=0, microsecond=0)
+    
+    # Get the start of the hour when last claimed
+    last_claim_hour_start = last_hourly.replace(minute=0, second=0, microsecond=0)
+    
+    # Calculate hours difference
+    hours_diff = int((current_hour_start - last_claim_hour_start).total_seconds() // 3600)
+    
+    # If claimed in current hour, no hours missed
+    if hours_diff <= 0:
+        return False, 0
+    
+    # Missed hours = hours_diff - 1 (because we need to miss the NEXT hour after claim)
+    missed_hours = hours_diff - 1
+    
+    # Streak breaks if missed >= threshold (default 2)
+    is_broken = missed_hours >= config.HOURLY_STREAK_MISSED_THRESHOLD
+    
+    return is_broken, missed_hours
+
+
+async def update_daily_streak(
+    session: AsyncSession, user_id: int
+) -> Tuple[int, int, bool]:
+    """
+    Update user's daily streak when claiming daily reward.
+    Returns (new_streak, reward, is_personal_best).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    is_broken, _ = await check_daily_streak_status(session, user_id)
+    
+    # If streak is broken, reset to 1
+    if is_broken:
+        new_streak = 1
+    else:
+        new_streak = user.daily_streak + 1
+    
+    # Check for personal best
+    is_personal_best = new_streak > user.daily_streak_best
+    new_best = max(new_streak, user.daily_streak_best)
+    
+    # Update user streak
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(daily_streak=new_streak, daily_streak_best=new_best)
+    )
+    await session.flush()
+    
+    # Calculate reward based on new streak
+    reward = calculate_daily_reward(new_streak)
+    
+    return new_streak, reward, is_personal_best
+
+
+async def update_hourly_streak(
+    session: AsyncSession, user_id: int
+) -> Tuple[int, int, bool]:
+    """
+    Update user's hourly streak when claiming hourly reward.
+    Returns (new_streak, reward, is_personal_best).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    is_broken, _ = await check_hourly_streak_status(session, user_id)
+    
+    # If streak is broken, reset to 1
+    if is_broken:
+        new_streak = 1
+    else:
+        new_streak = user.hourly_streak + 1
+    
+    # Check for personal best
+    is_personal_best = new_streak > user.hourly_streak_best
+    new_best = max(new_streak, user.hourly_streak_best)
+    
+    # Update user streak
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(hourly_streak=new_streak, hourly_streak_best=new_best)
+    )
+    await session.flush()
+    
+    # Calculate reward based on new streak
+    reward = calculate_hourly_reward(new_streak)
+    
+    return new_streak, reward, is_personal_best
+
+
+async def purchase_daily_streak_insurance(
+    session: AsyncSession, user_id: int
+) -> Tuple[bool, str]:
+    """
+    Purchase insurance to recover broken daily streak.
+    Returns (success, message).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    is_broken, _ = await check_daily_streak_status(session, user_id)
+    
+    if not is_broken:
+        return False, "Your daily streak is not broken!"
+    
+    cost = config.DAILY_STREAK_INSURANCE_COST
+    
+    if user.balance < cost:
+        return False, f"Insufficient balance. Insurance costs {cost:,} coins."
+    
+    # Deduct cost
+    await update_user_balance(
+        session,
+        user_id=user_id,
+        amount=-cost,
+        reason=TransactionReason.DAILY_STREAK_INSURANCE,
+    )
+    
+    # Restore streak (keep the same streak value, just mark as not broken by updating last_daily)
+    # Set last_daily to the start of the previous period so streak continues
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    today_reset = now.replace(hour=config.DAILY_RESET_HOUR, minute=0, second=0, microsecond=0)
+    
+    if now < today_reset:
+        previous_period_start = today_reset - timedelta(days=1)
+    else:
+        previous_period_start = today_reset
+    
+    # Set last_daily to just after previous period start to mark streak as continuous
+    restored_time = previous_period_start + timedelta(minutes=1)
+    
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(last_daily=restored_time)
+    )
+    await session.flush()
+    
+    return True, f"Daily streak saved! You paid {cost:,} coins."
+
+
+async def purchase_hourly_streak_insurance(
+    session: AsyncSession, user_id: int
+) -> Tuple[bool, str]:
+    """
+    Purchase insurance to recover broken hourly streak.
+    Returns (success, message).
+    """
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    is_broken, _ = await check_hourly_streak_status(session, user_id)
+    
+    if not is_broken:
+        return False, "Your hourly streak is not broken!"
+    
+    cost = config.HOURLY_STREAK_INSURANCE_COST
+    
+    if user.balance < cost:
+        return False, f"Insufficient balance. Insurance costs {cost:,} coins."
+    
+    # Deduct cost
+    await update_user_balance(
+        session,
+        user_id=user_id,
+        amount=-cost,
+        reason=TransactionReason.HOURLY_STREAK_INSURANCE,
+    )
+    
+    # Restore streak by setting last_hourly to previous hour
+    tz = ZoneInfo(config.TIMEZONE)
+    now = datetime.now(tz)
+    current_hour_start = now.replace(minute=0, second=0, microsecond=0)
+    previous_hour = current_hour_start - timedelta(hours=1)
+    
+    # Set last_hourly to previous hour to mark streak as continuous
+    restored_time = previous_hour + timedelta(minutes=1)
+    
+    await session.execute(
+        update(User)
+        .where(User.id == user_id)
+        .values(last_hourly=restored_time)
+    )
+    await session.flush()
+    
+    return True, f"Hourly streak saved! You paid {cost:,} coins."
+
+
+async def get_user_streak_info(session: AsyncSession, user_id: int) -> dict:
+    """Get user's streak information for display."""
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    daily_broken, daily_missed = await check_daily_streak_status(session, user_id)
+    hourly_broken, hourly_missed = await check_hourly_streak_status(session, user_id)
+    
+    return {
+        "daily_streak": user.daily_streak,
+        "daily_streak_best": user.daily_streak_best,
+        "daily_broken": daily_broken,
+        "daily_missed_periods": daily_missed,
+        "hourly_streak": user.hourly_streak,
+        "hourly_streak_best": user.hourly_streak_best,
+        "hourly_broken": hourly_broken,
+        "hourly_missed_hours": hourly_missed,
+    }
+
+
 async def can_claim_daily(session: AsyncSession, user_id: int) -> Tuple[bool, Optional[timedelta]]:
     """
     Check if user can claim daily reward (resets at 3 AM Warsaw time).
@@ -244,6 +578,41 @@ async def reset_user_balance(
     
     logger.info(f"Admin reset user {user_id} balance from {old_balance} to {new_balance}")
     return user
+
+
+async def add_user_xp(
+    session: AsyncSession,
+    user_id: int,
+    xp_amount: int,
+) -> Tuple[User, bool]:
+    """Add XP to user and update level. Returns (user, tier_up_occurred)."""
+    from utils.tier_system import calculate_level, check_tier_up
+    
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise ValueError(f"User with ID {user_id} not found")
+    
+    old_xp = user.experience_points
+    old_level = user.level
+    
+    # Add XP
+    user.experience_points += xp_amount
+    
+    # Recalculate level
+    new_level = calculate_level(user.experience_points)
+    user.level = new_level
+    
+    await session.flush()
+    
+    # Check if tier-up occurred
+    tier_up = check_tier_up(old_xp, user.experience_points)
+    
+    logger.debug(
+        f"Added {xp_amount} XP to user {user_id}: {old_xp} -> {user.experience_points} "
+        f"(Level {old_level} -> {new_level}, tier_up={tier_up})"
+    )
+    
+    return user, tier_up
 
 
 # ============================================================================

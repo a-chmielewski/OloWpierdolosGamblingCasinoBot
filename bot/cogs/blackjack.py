@@ -23,10 +23,13 @@ from database.crud import (
     add_duel_participant,
     get_duel_participants,
     update_participant_result,
+    add_user_xp,
 )
 from database.models import GameType, GameStatus, TransactionReason
 from utils.helpers import format_coins, get_user_lock
 from utils.card_utils import Deck, Hand, format_hand_display, calculate_winner
+from utils.bet_validator import validate_bet
+from utils.tier_system import calculate_xp_reward, get_level_tier, format_tier_badge
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +107,15 @@ class JoinGameView(discord.ui.View):
                 )
                 return
             
+            # Validate bet amount against progressive limits
+            is_valid, error_msg = validate_bet(user, self.bet_amount)
+            if not is_valid:
+                await interaction.response.send_message(
+                    error_msg,
+                    ephemeral=True,
+                )
+                return
+            
             # Check for active game
             active_game = await get_active_game_for_user(session, user.id)
             if active_game:
@@ -161,6 +173,15 @@ class Blackjack(commands.Cog):
             if not user:
                 await interaction.response.send_message(
                     "❌ You are not registered! Use `/register` first.",
+                    ephemeral=True,
+                )
+                return
+            
+            # Validate bet amount against progressive limits
+            is_valid, error_msg = validate_bet(user, bet)
+            if not is_valid:
+                await interaction.response.send_message(
+                    error_msg,
                     ephemeral=True,
                 )
                 return
@@ -653,11 +674,19 @@ class Blackjack(commands.Cog):
             color=discord.Color.gold(),
         )
         
+        tier_ups = []  # Store tier-up info for notifications
+        
         async with get_session() as session:
+            # Calculate XP per player
+            xp_earned = 0
+            
             for player_id in player_ids:
                 member = await channel.guild.fetch_member(player_id)
                 user = await get_user_by_discord_id(session, player_id)
                 hand = player_hands[player_id]
+                
+                # Calculate XP from bet
+                xp_earned = calculate_xp_reward(hand.bet)
                 
                 # Calculate result
                 result, multiplier = calculate_winner(hand, dealer_hand)
@@ -674,6 +703,12 @@ class Blackjack(commands.Cog):
                         reason=reason,
                         game_id=game_id,
                     )
+                
+                # Award XP for wagering
+                user, tier_up = await add_user_xp(session, user.id, xp_earned)
+                if tier_up:
+                    tier_info = get_level_tier(user.experience_points)
+                    tier_ups.append((member, tier_info))
                 
                 # Update participant
                 participants = await get_duel_participants(session, game_id)
@@ -720,7 +755,23 @@ class Blackjack(commands.Cog):
             inline=False,
         )
         
+        embed.set_footer(text=f"+{xp_earned} XP earned per player")
+        
         await channel.send(embed=embed)
+        
+        # Send tier-up notifications
+        for member, tier_info in tier_ups:
+            tier_embed = discord.Embed(
+                title="🎉 TIER UP!",
+                description=(
+                    f"Congratulations {member.mention}!\n\n"
+                    f"You've advanced to **{format_tier_badge(tier_info)}**!\n\n"
+                    f"**New Max Bet:** {format_coins(tier_info.max_bet)}"
+                ),
+                color=discord.Color.gold(),
+            )
+            tier_embed.set_thumbnail(url=member.display_avatar.url)
+            await channel.send(embed=tier_embed)
     
     async def _show_final_results(
         self,

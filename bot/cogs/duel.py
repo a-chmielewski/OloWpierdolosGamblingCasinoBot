@@ -150,10 +150,10 @@ class Duel(commands.Cog):
                 return
             
             # Validate bet amount for opponent
-            is_valid_opp, error_msg_opp = validate_bet(opponent_user, amount)
+            is_valid_opp, error_msg_opp = validate_bet(opponent_user, amount, context="Their")
             if not is_valid_opp:
                 await interaction.response.send_message(
-                    f"❌ {opponent.display_name} cannot accept this bet:\n{error_msg_opp}",
+                    f"❌ {opponent.display_name} cannot accept this bet:\n\n{error_msg_opp}",
                     ephemeral=True,
                 )
                 return

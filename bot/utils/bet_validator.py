@@ -12,12 +12,13 @@ from utils.tier_system import (
 from utils.helpers import format_coins
 
 
-def validate_bet(user: User, bet_amount: int) -> Tuple[bool, str]:
+def validate_bet(user: User, bet_amount: int, context: str = "Your") -> Tuple[bool, str]:
     """Validate a bet amount against progressive bet limits.
     
     Args:
         user: User object with balance and experience_points
         bet_amount: Amount user wants to bet
+        context: Context string for error messages ("Your" for self, "Their" for opponent)
         
     Returns:
         Tuple of (is_valid, error_message)
@@ -58,7 +59,7 @@ def validate_bet(user: User, bet_amount: int) -> Tuple[bool, str]:
             if next_threshold:
                 progress_msg = f"\nReach {format_coins(next_threshold)} balance to unlock the next tier."
             else:
-                progress_msg = "\nYou are at the maximum balance tier!"
+                progress_msg = f"\n{context.replace('Your', 'They are').replace('Their', 'They are')} at the maximum balance tier!"
         else:
             # Level is limiting factor
             limiting_tier = level_tier
@@ -68,11 +69,11 @@ def validate_bet(user: User, bet_amount: int) -> Tuple[bool, str]:
                 xp_needed = next_threshold - user.experience_points
                 progress_msg = f"\nGain {xp_needed:,} more XP to unlock the next tier."
             else:
-                progress_msg = "\nYou are at the maximum level tier!"
+                progress_msg = f"\n{context.replace('Your', 'They are').replace('Their', 'They are')} at the maximum level tier!"
         
         error_msg = (
             f"❌ **Bet Too High**\n\n"
-            f"Your {limiting_type} Tier: {format_tier_badge(limiting_tier)}\n"
+            f"{context} {limiting_type} Tier: {format_tier_badge(limiting_tier)}\n"
             f"Maximum allowed bet: {format_coins(max_bet)}\n"
             f"{progress_msg}"
         )

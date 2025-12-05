@@ -33,7 +33,8 @@ def validate_bet(user: User, bet_amount: int, context: str = "Your") -> Tuple[bo
         if bet_amount <= 0:
             return False, "❌ Bet amount must be positive!"
         if bet_amount > user.balance:
-            return False, f"❌ Insufficient balance! You have {format_coins(user.balance)}."
+            balance_owner = "You have" if context == "Your" else "They have"
+            return False, f"❌ Insufficient balance! {balance_owner} {format_coins(user.balance)}."
         return True, ""
     
     # Basic validation
@@ -41,7 +42,8 @@ def validate_bet(user: User, bet_amount: int, context: str = "Your") -> Tuple[bo
         return False, "❌ Bet amount must be positive!"
     
     if bet_amount > user.balance:
-        return False, f"❌ Insufficient balance! You have {format_coins(user.balance)}."
+        balance_owner = "You have" if context == "Your" else "They have"
+        return False, f"❌ Insufficient balance! {balance_owner} {format_coins(user.balance)}."
     
     # Check progressive limits
     max_bet = get_max_bet_limit(user.balance, user.experience_points)
@@ -59,7 +61,8 @@ def validate_bet(user: User, bet_amount: int, context: str = "Your") -> Tuple[bo
             if next_threshold:
                 progress_msg = f"\nReach {format_coins(next_threshold)} balance to unlock the next tier."
             else:
-                progress_msg = f"\n{context.replace('Your', 'They are').replace('Their', 'They are')} at the maximum balance tier!"
+                tier_owner = "You are" if context == "Your" else "They are"
+                progress_msg = f"\n{tier_owner} at the maximum balance tier!"
         else:
             # Level is limiting factor
             limiting_tier = level_tier
@@ -69,7 +72,8 @@ def validate_bet(user: User, bet_amount: int, context: str = "Your") -> Tuple[bo
                 xp_needed = next_threshold - user.experience_points
                 progress_msg = f"\nGain {xp_needed:,} more XP to unlock the next tier."
             else:
-                progress_msg = f"\n{context.replace('Your', 'They are').replace('Their', 'They are')} at the maximum level tier!"
+                tier_owner = "You are" if context == "Your" else "They are"
+                progress_msg = f"\n{tier_owner} at the maximum level tier!"
         
         error_msg = (
             f"❌ **Bet Too High**\n\n"
